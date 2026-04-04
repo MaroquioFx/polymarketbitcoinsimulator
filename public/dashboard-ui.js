@@ -1,55 +1,51 @@
 /**
  * dashboard-ui.js
- * Lógica de UI do dashboard: mock data, countdown, sparklines,
- * confluência de sinais, odds history chart.
- * Compatível com app.js (complementar, não conflita).
+ * Versão 2.1 — Robot Prediction + fixes
  */
 
 /* ════════════════════════════════════════════════
-   ESTADO MOCK — substitua pelos dados reais do SSE
+   ESTADO GLOBAL
    ════════════════════════════════════════════════ */
 const state = {
   event: {
-    slug: 'btc-updown-15m-1775340000',
+    slug: 'btc-updown-15m',
     targetPrice: 67345,
     upOdds: 0.58,
     downOdds: 0.41,
     volume: 4339,
-    timeRemaining: 652,   // segundos
+    timeRemaining: 652,
     timeframe: '15min',
-    startTime: Date.now()
   },
   indicators: {
-    rsi:       { value: 55.2,  signal: 'BUY',     history: [] },
-    macd:      { value: -3.2,  signalLine: -2.8,  signal: 'SELL', history: [] },
-    vwap:      { value: 67324, signal: 'BUY',     history: [] },
-    heikenAshi:{ value: 'green x3',               signal: 'BUY',  history: [] }
+    rsi:       { value: 55.2,  signal: 'BUY',  history: [] },
+    macd:      { value: -3.2,  signal: 'SELL', history: [] },
+    vwap:      { value: 67324, signal: 'BUY',  history: [] },
+    heikenAshi:{ value: 'green x3', signal: 'BUY', history: [] }
   },
-  priceHistory: [],          // { time, price, macdHist }
+  priceHistory: [],
   forecast: { long: 77, short: 23 },
-  signalHistory: [],         // { time, signal, result }
-  oddsHistory:   [],         // [{ up, down }]
-  lastUpdateTs:  Date.now(),
-  totalTimeSeconds: 652
+  signalHistory: [],
+  oddsHistory: [],
+  lastUpdateTs: Date.now(),
+  totalTimeSeconds: 652,
+  currentBtcPrice: null,
+  currentInterval: 15  // minutos
 };
 
 /* ════════════════════════════════════════════════
-   INICIALIZAÇÃO DO HISTÓRICO MOCK
+   HISTÓRICO MOCK INICIAL
    ════════════════════════════════════════════════ */
 (function initMockHistory() {
   const base = 67200;
   for (let i = 30; i >= 0; i--) {
     const price = base + (Math.random() - 0.48) * 400 * (30 - i) / 10;
-    const macdHist = (Math.random() - 0.5) * 8;
-    const t = new Date(Date.now() - i * 30000);
-    const label = t.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    state.priceHistory.push({ time: label, price: +price.toFixed(2), macdHist: +macdHist.toFixed(2) });
+    state.priceHistory.push({ price: +price.toFixed(2) });
   }
+  state.currentBtcPrice = state.priceHistory[state.priceHistory.length - 1].price;
 
   for (let k = 0; k < 10; k++) {
-    const up   = 0.48 + (Math.random() - 0.5) * 0.2;
-    const down = +(1 - up).toFixed(2);
-    state.oddsHistory.push({ up: +up.toFixed(2), down });
+    const up = 0.48 + (Math.random() - 0.5) * 0.2;
+    state.oddsHistory.push({ up: +up.toFixed(2), down: +(1 - up).toFixed(2) });
   }
 
   for (let j = 0; j < 10; j++) {
@@ -58,31 +54,204 @@ const state = {
     state.indicators.vwap.history.push(+(67100 + Math.random() * 500).toFixed(0));
     state.indicators.heikenAshi.history.push(Math.random() > 0.4 ? 1 : 0);
   }
-
-  const sigs = ['LONG','SHORT'];
-  const res  = ['win','loss'];
-  for (let s = 0; s < 5; s++) {
-    state.signalHistory.push({
-      time:   new Date(Date.now() - (5 - s) * 180000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      signal: sigs[Math.round(Math.random())],
-      result: res[Math.round(Math.random())]
-    });
-  }
 })();
 
 /* ════════════════════════════════════════════════
-   FAVICON EMOJI
+   ROBOT PREDICTOR
    ════════════════════════════════════════════════ */
-(function setFavicon() {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 64;
-  const ctx = canvas.getContext('2d');
-  ctx.font = '52px serif';
-  ctx.fillText('🟢', 4, 52);
-  const link = document.querySelector("link[rel='icon']") || document.createElement('link');
-  link.rel  = 'icon';
-  link.href = canvas.toDataURL();
-  document.head.appendChild(link);
+const RobotPredictor = (() => {
+  const STORAGE_KEY = 'btc_robot_predictions';
+  let predictionMadeThisCycle = false;
+  let predictionData = null; // { direction, priceAtPrediction, timeLabel, interval }
+
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.slice(-50) : [];
+    } catch { return []; }
+  }
+
+  function saveHistory(history) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-50))); } catch {}
+  }
+
+  function computeDirection() {
+    const signals = [
+      state.indicators.rsi.signal,
+      state.indicators.macd.signal,
+      state.indicators.vwap.signal,
+      state.indicators.heikenAshi.signal
+    ];
+    const buyCount  = signals.filter(s => s === 'BUY').length;
+    const sellCount = signals.filter(s => s === 'SELL').length;
+    return {
+      direction: buyCount >= sellCount ? 'UP' : 'DOWN',
+      confidence: Math.max(buyCount, sellCount),
+      total: signals.length
+    };
+  }
+
+  function makePrediction(interval) {
+    if (predictionMadeThisCycle) return;
+    const { direction, confidence, total } = computeDirection();
+    const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    predictionMadeThisCycle = true;
+    predictionData = {
+      direction,
+      confidence,
+      total,
+      priceAtPrediction: state.currentBtcPrice,
+      timeLabel: now,
+      interval
+    };
+
+    renderCurrentPrediction();
+    showPredictionAlert(direction, confidence, total);
+  }
+
+  function resolvePrediction(finalPrice) {
+    if (!predictionData) return;
+    if (finalPrice === null || predictionData.priceAtPrediction === null) {
+      resetCycle();
+      return;
+    }
+
+    const priceWentUp = finalPrice >= predictionData.priceAtPrediction;
+    const correct = (predictionData.direction === 'UP' && priceWentUp) ||
+                    (predictionData.direction === 'DOWN' && !priceWentUp);
+
+    const history = loadHistory();
+    history.push({
+      time:      predictionData.timeLabel,
+      direction: predictionData.direction,
+      interval:  predictionData.interval,
+      confidence:`${predictionData.confidence}/${predictionData.total}`,
+      result:    correct ? 'win' : 'loss',
+      priceBefore: predictionData.priceAtPrediction,
+      priceAfter:  finalPrice
+    });
+    saveHistory(history);
+
+    renderRobotHistory();
+    renderCurrentPrediction();
+    resetCycle();
+  }
+
+  function resetCycle() {
+    predictionMadeThisCycle = false;
+    predictionData = null;
+  }
+
+  function renderCurrentPrediction() {
+    const el = document.getElementById('robot-current-pred');
+    if (!el) return;
+
+    if (!predictionData) {
+      const interval = state.currentInterval || 15;
+      const halfSecs = (interval * 60) / 2;
+      const s = state.event.timeRemaining;
+      const sUntilPred = Math.max(0, s - halfSecs);
+      const m = Math.floor(sUntilPred / 60);
+      const sec = sUntilPred % 60;
+      el.innerHTML = `
+        <div class="robot-waiting">
+          <span class="robot-wait-icon">⏳</span>
+          <span>Palpite em <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></span>
+        </div>`;
+    } else {
+      const colorClass = predictionData.direction === 'UP' ? 'robot-pred-up' : 'robot-pred-down';
+      el.innerHTML = `
+        <div class="robot-pred-active ${colorClass}">
+          <span class="robot-pred-icon">${predictionData.direction === 'UP' ? '↑' : '↓'}</span>
+          <div class="robot-pred-info">
+            <span class="robot-pred-label">${predictionData.direction === 'UP' ? 'YES — BTC SOBE' : 'NO — BTC CAI'}</span>
+            <span class="robot-pred-meta">${predictionData.confidence}/${predictionData.total} indicadores · ${predictionData.timeLabel}</span>
+          </div>
+        </div>`;
+    }
+  }
+
+  function renderRobotHistory() {
+    const list = document.getElementById('robot-history-list');
+    const statsEl = document.getElementById('robot-stats');
+    const badgeEl = document.getElementById('robot-accuracy-badge');
+    if (!list) return;
+
+    const history = loadHistory();
+    const wins  = history.filter(h => h.result === 'win').length;
+    const total = history.length;
+    const rate  = total > 0 ? ((wins / total) * 100).toFixed(0) : '--';
+
+    if (badgeEl) {
+      badgeEl.textContent = total > 0 ? `${wins}/${total} · ${rate}%` : 'Sem dados';
+      badgeEl.className = 'robot-accuracy-badge ' +
+        (total === 0 ? '' : +rate >= 60 ? 'acc-high' : +rate >= 45 ? 'acc-mid' : 'acc-low');
+    }
+
+    if (statsEl) {
+      statsEl.innerHTML = total > 0
+        ? `<span class="robot-stat-win">✓ ${wins} acertos</span><span class="robot-stat-sep">·</span><span class="robot-stat-loss">✗ ${total - wins} erros</span><span class="robot-stat-rate">${rate}% win rate</span>`
+        : `<span class="robot-stat-empty">Aguardando primeiros palpites…</span>`;
+    }
+
+    if (!history.length) {
+      list.innerHTML = '<li class="robot-empty">Histórico vazio – aguarde o primeiro ciclo completo.</li>';
+      return;
+    }
+
+    list.innerHTML = history.slice().reverse().slice(0, 8).map(h => `
+      <li class="robot-hist-item ${h.result}">
+        <span class="rh-icon">${h.result === 'win' ? '✓' : '✗'}</span>
+        <span class="rh-time mono">${h.time}</span>
+        <span class="rh-dir ${h.direction === 'UP' ? 'rh-up' : 'rh-down'}">${h.direction}</span>
+        <span class="rh-interval">${h.interval}m</span>
+        <span class="rh-conf">${h.confidence}</span>
+      </li>`).join('');
+  }
+
+  function showPredictionAlert(direction, confidence, total) {
+    // Cria overlay de alerta temporário
+    const existing = document.getElementById('pred-alert-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pred-alert-overlay';
+    overlay.className = `pred-alert ${direction === 'UP' ? 'pred-alert-up' : 'pred-alert-down'}`;
+    overlay.innerHTML = `
+      <div class="pred-alert-icon">${direction === 'UP' ? '↑' : '↓'}</div>
+      <div class="pred-alert-text">
+        <strong>Robot: ${direction === 'UP' ? 'YES — BTC SOBE' : 'NO — BTC CAI'}</strong>
+        <span>${confidence}/${total} indicadores alinhados</span>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    // Remove após 6 segundos
+    setTimeout(() => overlay.remove(), 6000);
+  }
+
+  // API pública
+  return {
+    check(timeRemaining, interval, finalPrice) {
+      const halfSecs = (interval * 60) / 2;
+      // Na metade do tempo: timeRemaining caiu abaixo de halfSecs E ainda não fez palpite
+      if (timeRemaining <= halfSecs && timeRemaining > 0) {
+        makePrediction(interval);
+      }
+      // No fim do ciclo: resolver o palpite
+      if (timeRemaining <= 0 && predictionData) {
+        resolvePrediction(finalPrice);
+      }
+      // Resetar flag quando começa novo ciclo (tempo alto novamente)
+      if (timeRemaining > halfSecs + 10) {
+        predictionMadeThisCycle = false;
+      }
+      renderCurrentPrediction();
+    },
+    renderHistory: renderRobotHistory,
+    isPending: () => !!predictionData
+  };
 })();
 
 /* ════════════════════════════════════════════════
@@ -94,7 +263,6 @@ function computeConfidence() {
   const sellCount = signals.filter(s => s === 'SELL').length;
   const majority  = buyCount >= sellCount ? 'LONG' : 'SHORT';
   const aligned   = Math.max(buyCount, sellCount);
-
   return { aligned, total: signals.length, majority,
     level: aligned >= 4 ? 'HIGH' : aligned >= 3 ? 'MEDIUM' : 'LOW' };
 }
@@ -105,7 +273,7 @@ function computeConfidence() {
 function renderSparkline(svgId, data, colorFn) {
   const svg = document.getElementById(svgId);
   if (!svg || !data.length) return;
-  const W = 60, H = 20;
+  const W = 60, H = 18;
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 1;
@@ -129,46 +297,58 @@ function renderAllSparklines() {
 }
 
 /* ════════════════════════════════════════════════
-   COUNTDOWN TIMER
+   COUNTDOWN TIMER — Sem pisca-pisca
    ════════════════════════════════════════════════ */
 let countdownInterval = null;
+let lastRenderedTime  = -1; // evita re-render desnecessário
 
 function startCountdown() {
-  const ring       = document.getElementById('countdown-ring');
-  const timeEl     = document.getElementById('time-left');
-  const circumference = 163.4; // 2π * 26
+  const ring = document.getElementById('countdown-ring');
+  const timeEl = document.getElementById('time-left');
+  const circumference = 163.4;
 
   if (countdownInterval) clearInterval(countdownInterval);
 
   countdownInterval = setInterval(() => {
-    if (state.event.timeRemaining <= 0) {
-      state.event.timeRemaining = 0;
-      clearInterval(countdownInterval);
-    } else {
+    if (state.event.timeRemaining > 0) {
       state.event.timeRemaining--;
     }
 
-    const s   = state.event.timeRemaining;
-    const m   = Math.floor(s / 60);
-    const sec = s % 60;
-    const timeStr = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    const s = state.event.timeRemaining;
 
-    if (timeEl) {
-      timeEl.textContent = timeStr;
-      timeEl.classList.add('num-flip');
-      setTimeout(() => timeEl.classList.remove('num-flip'), 250);
+    // Só atualiza o DOM se o valor mudou
+    if (s !== lastRenderedTime) {
+      lastRenderedTime = s;
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      if (timeEl) timeEl.textContent = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+
+      if (ring) {
+        const progress = state.totalTimeSeconds > 0 ? s / state.totalTimeSeconds : 0;
+        const offset = circumference * (1 - progress);
+        ring.style.strokeDashoffset = offset.toFixed(2);
+
+        // Atualiza classe de cor apenas quando muda de faixa
+        const shouldBeDanger = s < 30;
+        const shouldBeWarn   = s < 120 && s >= 30;
+        const hasDanger = ring.classList.contains('danger');
+        const hasWarn   = ring.classList.contains('warn');
+
+        if (shouldBeDanger && !hasDanger) { ring.classList.remove('warn');   ring.classList.add('danger'); }
+        else if (shouldBeWarn && !hasWarn){ ring.classList.remove('danger'); ring.classList.add('warn');   }
+        else if (!shouldBeDanger && !shouldBeWarn && (hasDanger || hasWarn)) {
+          ring.classList.remove('danger', 'warn');
+        }
+      }
     }
 
-    // Barra circular SVG
-    if (ring) {
-      const progress = s / state.totalTimeSeconds;
-      const offset   = circumference * (1 - progress);
-      ring.style.strokeDashoffset = offset.toFixed(2);
+    // Verificar palpite do robô
+    RobotPredictor.check(
+      state.event.timeRemaining,
+      state.currentInterval,
+      state.currentBtcPrice
+    );
 
-      ring.classList.remove('warn', 'danger');
-      if (s < 30)  ring.classList.add('danger');
-      else if (s < 120) ring.classList.add('warn');
-    }
   }, 1000);
 }
 
@@ -214,10 +394,10 @@ function updateOddsChart() {
    ════════════════════════════════════════════════ */
 function updateConfluenceCard() {
   const conf = computeConfidence();
-  const numEl  = document.getElementById('confluence-num');
-  const dirEl  = document.getElementById('confluence-dir');
-  const badgeEl = document.getElementById('confluence-badge');
-  const bar    = document.getElementById('conf-progress-bar');
+  const numEl     = document.getElementById('confluence-num');
+  const dirEl     = document.getElementById('confluence-dir');
+  const badgeEl   = document.getElementById('confluence-badge');
+  const bar       = document.getElementById('conf-progress-bar');
   const confBadge = document.getElementById('confidence-badge');
   const enterBtn  = document.getElementById('enter-signal-btn');
   const indConf   = document.getElementById('ind-confluence');
@@ -230,12 +410,10 @@ function updateConfluenceCard() {
     badgeEl.className = `ind-badge badge-${conf.level === 'HIGH' ? 'buy' : conf.level === 'MEDIUM' ? 'buy' : 'neutral'}`;
     badgeEl.textContent = conf.level;
   }
-
   if (confBadge) {
     confBadge.className = `conf-badge conf-${conf.level.toLowerCase()}`;
     confBadge.textContent = conf.level;
   }
-
   if (enterBtn) {
     if (conf.level === 'HIGH') {
       enterBtn.classList.remove('hidden');
@@ -246,10 +424,7 @@ function updateConfluenceCard() {
       enterBtn.classList.remove('pulse');
     }
   }
-
-  if (indConf) {
-    indConf.dataset.signal = conf.majority === 'LONG' ? 'buy' : 'sell';
-  }
+  if (indConf) indConf.dataset.signal = conf.majority === 'LONG' ? 'buy' : 'sell';
 }
 
 /* ════════════════════════════════════════════════
@@ -277,44 +452,42 @@ function updateLastAgo() {
 }
 
 /* ════════════════════════════════════════════════
-   SIMULAR REFRESH (MOCK) — substitua por SSE real
-   Quando app.js receber dados do SSE, chame
-   updateDashboardExtras(data) abaixo.
+   MOCK REFRESH (5s)
    ════════════════════════════════════════════════ */
 function refreshMockData() {
-  // Simular mudança nos indicadores
   const rsiDelta = (Math.random() - 0.49) * 1.5;
   state.indicators.rsi.value = Math.max(20, Math.min(80, state.indicators.rsi.value + rsiDelta));
   state.indicators.rsi.history.push(+state.indicators.rsi.value.toFixed(1));
   if (state.indicators.rsi.history.length > 12) state.indicators.rsi.history.shift();
 
   const macdDelta = (Math.random() - 0.52) * 0.8;
-  state.indicators.macd.value = +( state.indicators.macd.value + macdDelta ).toFixed(2);
+  state.indicators.macd.value = +(state.indicators.macd.value + macdDelta).toFixed(2);
   state.indicators.macd.history.push(state.indicators.macd.value);
   if (state.indicators.macd.history.length > 12) state.indicators.macd.history.shift();
 
-  // Odds
   const upShift = (Math.random() - 0.5) * 0.03;
   state.event.upOdds   = Math.max(0.1, Math.min(0.9, state.event.upOdds + upShift));
   state.event.downOdds = +(1 - state.event.upOdds).toFixed(2);
   state.oddsHistory.push({ up: +state.event.upOdds.toFixed(2), down: state.event.downOdds });
   if (state.oddsHistory.length > 12) state.oddsHistory.shift();
 
-  // Forecast
   const long = Math.round(state.event.upOdds * 100 + (Math.random() - 0.5) * 6);
   state.forecast.long  = Math.max(20, Math.min(80, long));
   state.forecast.short = 100 - state.forecast.long;
 
-  // Determinar sinal dos indicadores dinamicamente
-  state.indicators.rsi.signal       = state.indicators.rsi.value > 55 ? 'BUY' : state.indicators.rsi.value < 45 ? 'SELL' : 'NEUTRAL';
-  state.indicators.macd.signal      = state.indicators.macd.value > 0 ? 'BUY' : 'SELL';
+  state.indicators.rsi.signal  = state.indicators.rsi.value > 55 ? 'BUY' : state.indicators.rsi.value < 45 ? 'SELL' : 'NEUTRAL';
+  state.indicators.macd.signal = state.indicators.macd.value > 0 ? 'BUY' : 'SELL';
+
+  // Simula variação de preço BTC
+  const priceDelta = (Math.random() - 0.5) * 50;
+  state.currentBtcPrice = (state.currentBtcPrice || 67000) + priceDelta;
 
   state.lastUpdateTs = Date.now();
   renderAllUI();
 }
 
 /* ════════════════════════════════════════════════
-   RENDERIZAR TUDO NA UI
+   RENDERIZAR TUDO
    ════════════════════════════════════════════════ */
 function renderAllUI() {
   // Forecast bar
@@ -339,10 +512,10 @@ function renderAllUI() {
   if (upPrice)  upPrice.textContent  = `${(state.event.upOdds   * 100).toFixed(0)}¢`;
   if (downPrice)downPrice.textContent= `${(state.event.downOdds * 100).toFixed(0)}¢`;
 
-  // Indicator cards border color
+  // Indicator border colors
   const sigMap = {
-    'ind-rsi':    state.indicators.rsi.signal.toLowerCase().replace('neutral','neutral').replace('buy','buy').replace('sell','sell'),
-    'ind-macd':   state.indicators.macd.signal.toLowerCase().replace('sell','sell').replace('buy','buy').replace('neutral','neutral'),
+    'ind-rsi':    state.indicators.rsi.signal.toLowerCase(),
+    'ind-macd':   state.indicators.macd.signal.toLowerCase(),
     'ind-vwap':   state.indicators.vwap.signal.toLowerCase(),
     'ind-heiken': state.indicators.heikenAshi.signal.toLowerCase()
   };
@@ -351,7 +524,7 @@ function renderAllUI() {
     if (el) el.dataset.signal = sig === 'buy' ? 'buy' : sig === 'sell' ? 'sell' : 'neutral';
   });
 
-  // RSI badge
+  // RSI
   const rsiBadge = document.querySelector('#ind-rsi .ind-badge');
   if (rsiBadge) {
     rsiBadge.className = `ind-badge badge-${state.indicators.rsi.signal === 'BUY' ? 'buy' : state.indicators.rsi.signal === 'SELL' ? 'sell' : 'neutral'}`;
@@ -360,7 +533,7 @@ function renderAllUI() {
   const rsiValEl = document.getElementById('rsi-val');
   if (rsiValEl) animateValue(rsiValEl, state.indicators.rsi.value.toFixed(1));
 
-  // MACD badge
+  // MACD
   const macdBadge = document.querySelector('#ind-macd .ind-badge');
   if (macdBadge) {
     macdBadge.className = `ind-badge badge-${state.indicators.macd.signal === 'BUY' ? 'buy' : 'sell'}`;
@@ -377,23 +550,23 @@ function renderAllUI() {
 }
 
 /* ════════════════════════════════════════════════
-   ANIMAÇÃO DE VALOR (NUM-FLIP)
+   ANIMAÇÃO DE VALOR (SEM num-flip no relógio)
    ════════════════════════════════════════════════ */
 function animateValue(el, newText) {
   if (!el || el.textContent === String(newText)) return;
   el.classList.remove('num-flip');
-  void el.offsetWidth; // reflow
+  void el.offsetWidth;
   el.textContent = newText;
   el.classList.add('num-flip');
 }
 
 /* ════════════════════════════════════════════════
-   HOOK PARA INTEGRAÇÃO COM APP.JS (SSE real)
-   Chame window.updateDashboardExtras(data) quando
-   o SSE receber novos dados.
+   HOOK SSE — app.js chama window.updateDashboardExtras(data)
    ════════════════════════════════════════════════ */
 window.updateDashboardExtras = function(data) {
   state.lastUpdateTs = Date.now();
+
+  if (data.interval) state.currentInterval = data.interval;
 
   if (data.prediction) {
     state.forecast.long  = Math.round(data.prediction.up   * 100);
@@ -421,7 +594,10 @@ window.updateDashboardExtras = function(data) {
       if (state.indicators.macd.history.length > 12) state.indicators.macd.history.shift();
     }
   }
+  if (data.btcPrice) state.currentBtcPrice = data.btcPrice;
+
   if (data.event?.timeRemaining !== undefined) {
+    // Sincroniza o timer com o servidor silenciosamente (sem resetar o interval)
     state.event.timeRemaining = data.event.timeRemaining;
     state.totalTimeSeconds    = data.event.totalTime || state.totalTimeSeconds;
   }
@@ -436,7 +612,7 @@ window.copySlug = function() {
   const el = document.getElementById('active-event-id');
   if (!el) return;
   navigator.clipboard.writeText(el.textContent).then(() => {
-    el.textContent = '✓ Copiado!';
+    el.textContent = '✓ Copied!';
     setTimeout(() => renderAllUI(), 1500);
   });
 };
@@ -448,10 +624,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initOddsChart();
   renderAllUI();
   startCountdown();
+  RobotPredictor.renderHistory();
 
-  // Auto-refresh de mock a cada 5s (será substituído pelo SSE real do app.js)
+  // Mock refresh a cada 5s (substituído pelo SSE real do app.js)
   setInterval(refreshMockData, 5000);
 
-  // Atualiza o "X s ago" a cada segundo
+  // "X s ago"
   setInterval(updateLastAgo, 1000);
 });

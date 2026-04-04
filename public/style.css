@@ -516,9 +516,9 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 .down-fill { background: var(--down); }
 
 .odds-history-wrap { display: flex; flex-direction: column; gap: 0.3rem; }
-.odds-history-wrap canvas { width: 100% !important; }
+.odds-history-wrap canvas { width: 100% !important; height: 60px !important; max-height: 60px; display: block; }
 
-/* ── Footer ──────────────────────────────────── */
+/* ── Footer ─────────────────────────────────── */
 .site-footer {
   margin-top: 1.5rem;
   padding: 1rem 1.5rem;
@@ -529,6 +529,167 @@ input[type="text"]::placeholder { color: var(--text-muted); }
   line-height: 1.6;
 }
 .site-footer .copy { margin-top: 0.3rem; opacity: 0.5; }
+
+/* ── ROBOT PREDICTION CARD ──────────────── */
+.row-robot { margin-top: 0; }
+
+.robot-card { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.robot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.robot-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.robot-icon { font-size: 1.1rem; }
+.robot-subtitle {
+  font-size: 0.65rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 0.2rem;
+}
+
+.robot-accuracy-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.7rem;
+  border-radius: 99px;
+  background: rgba(107,114,128,0.15);
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+.robot-accuracy-badge.acc-high { background: var(--accent-dim); color: var(--accent); }
+.robot-accuracy-badge.acc-mid  { background: var(--warn-dim);   color: var(--warn); }
+.robot-accuracy-badge.acc-low  { background: var(--danger-dim); color: var(--danger); }
+
+/* Palpite atual */
+.robot-current {
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+}
+.robot-waiting {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.robot-wait-icon { font-size: 1rem; }
+
+.robot-pred-active {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+.robot-pred-icon {
+  font-size: 1.8rem;
+  font-weight: 900;
+  line-height: 1;
+  min-width: 32px;
+  text-align: center;
+}
+.robot-pred-info { display: flex; flex-direction: column; gap: 0.1rem; }
+.robot-pred-label { font-size: 0.88rem; font-weight: 800; }
+.robot-pred-meta  { font-size: 0.65rem; color: var(--text-muted); }
+.robot-pred-up   .robot-pred-icon,
+.robot-pred-up   .robot-pred-label { color: var(--up); }
+.robot-pred-down .robot-pred-icon,
+.robot-pred-down .robot-pred-label { color: var(--down); }
+.robot-pred-up   { border-left: 3px solid var(--up); }
+.robot-pred-down { border-left: 3px solid var(--down); }
+
+/* Stats */
+.robot-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.72rem;
+  flex-wrap: wrap;
+}
+.robot-stat-win  { color: var(--accent); font-weight: 700; }
+.robot-stat-loss { color: var(--danger); font-weight: 700; }
+.robot-stat-sep  { color: var(--text-muted); }
+.robot-stat-rate { color: var(--warn); font-weight: 700; margin-left: auto; }
+.robot-stat-empty { color: var(--text-muted); font-style: italic; }
+
+/* Histórico */
+.robot-hist-wrap { display: flex; flex-direction: column; gap: 0.3rem; }
+.robot-history {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.robot-empty { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
+.robot-hist-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  background: rgba(255,255,255,0.03);
+}
+.robot-hist-item.win  { border-left: 2px solid var(--accent); }
+.robot-hist-item.loss { border-left: 2px solid var(--danger); }
+.rh-icon { font-weight: 700; min-width: 12px; }
+.robot-hist-item.win  .rh-icon { color: var(--accent); }
+.robot-hist-item.loss .rh-icon { color: var(--danger); }
+.rh-time     { color: var(--text-muted); flex: 1; }
+.rh-up       { color: var(--up); font-weight: 700; }
+.rh-down     { color: var(--down); font-weight: 700; }
+.rh-interval { color: var(--text-muted); font-size: 0.62rem; background: rgba(255,255,255,0.05); padding: 0 4px; border-radius: 3px; }
+.rh-conf     { color: var(--text-muted); margin-left: auto; }
+
+/* Alerta de palpite (overlay) */
+.pred-alert {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 1.2rem;
+  border-radius: 12px;
+  border: 1px solid;
+  backdrop-filter: blur(12px);
+  z-index: 999;
+  animation: slide-in-right 0.35s ease forwards;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  max-width: 300px;
+}
+.pred-alert-up   { background: rgba(0,212,170,0.15); border-color: var(--accent); }
+.pred-alert-down { background: rgba(255,77,109,0.15); border-color: var(--danger); }
+.pred-alert-icon { font-size: 2rem; font-weight: 900; }
+.pred-alert-up   .pred-alert-icon { color: var(--up); }
+.pred-alert-down .pred-alert-icon { color: var(--down); }
+.pred-alert-text { display: flex; flex-direction: column; gap: 0.1rem; }
+.pred-alert-text strong { font-size: 0.9rem; }
+.pred-alert-up   .pred-alert-text strong { color: var(--up); }
+.pred-alert-down .pred-alert-text strong { color: var(--down); }
+.pred-alert-text span { font-size: 0.72rem; color: var(--text-muted); }
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
 
 /* ── Number flip animation ───────────────────── */
 @keyframes flip-in {
