@@ -18,6 +18,8 @@ const vwapTendencyEl = document.getElementById('vwap-tendency');
 const heikenVal = document.getElementById('heiken-val');
 const upPriceEl = document.getElementById('up-outcome-price');
 const downPriceEl = document.getElementById('down-outcome-price');
+const upPriceStatsEl = document.getElementById('up-outcome-price-stats');
+const downPriceStatsEl = document.getElementById('down-outcome-price-stats');
 const activeEventIdEl = document.getElementById('active-event-id');
 const volumeEl = document.getElementById('market-volume');
 const miniVolumeEl = document.getElementById('volume-indicator-mini');
@@ -145,8 +147,13 @@ function updateUI(data) {
     heikenVal.textContent = data.indicators.heiken ? `${data.indicators.heiken.color} x${data.indicators.heiken.count}` : '--';
     heikenVal.className = 'val ' + (data.indicators.heiken?.color === 'green' ? 'up-val' : 'down-val');
 
-    upPriceEl.textContent = data.prices.up ? (data.prices.up * 100).toFixed(0) + '¢' : '--¢';
-    downPriceEl.textContent = data.prices.down ? (data.prices.down * 100).toFixed(0) + '¢' : '--¢';
+    const finalUp = data.prices.up ? (data.prices.up * 100).toFixed(0) + '¢' : '--¢';
+    const finalDown = data.prices.down ? (data.prices.down * 100).toFixed(0) + '¢' : '--¢';
+    
+    if (upPriceEl) upPriceEl.textContent = finalUp;
+    if (downPriceEl) downPriceEl.textContent = finalDown;
+    if (upPriceStatsEl) upPriceStatsEl.textContent = finalUp;
+    if (downPriceStatsEl) downPriceStatsEl.textContent = finalDown;
 
     if (data.interval) {
         intervalBadge.textContent = `${data.interval} min`;
@@ -239,16 +246,21 @@ function initChart() {
 intervalBtns.forEach(btn => {
     btn.onclick = async () => {
         const min = parseInt(btn.dataset.min);
+        // Feedback visual imediato
         intervalBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         activeInterval = min;
         
-        // Trigger immediate update
+        // Limpa estado anterior para nova análise
+        clearChart();
+        activeEventIdEl.textContent = 'Buscando...';
+        if (eventInput.disabled) eventInput.value = '';
+
         try {
             await fetch('/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interval: min })
+                body: JSON.stringify({ interval: min, autoDetect: true }) // Ao mudar time, força auto-detect para achar a nova série
             });
         } catch (e) {
             console.error('Erro ao atualizar intervalo:', e);

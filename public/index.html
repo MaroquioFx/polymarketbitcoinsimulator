@@ -104,35 +104,19 @@
             <!-- Market Stats Card -->
             <div class="card glass shadow market-stats-card">
                 <div class="card-header">
-                    <h2 id="market-title">Carregando mercado...</h2>
+                    <h2 id="market-title">Carregando...</h2>
                     <span id="current-interval-badge" class="interval-badge">-- min</span>
                 </div>
                 
                 <div class="market-data-grid">
-                    <div class="event-id-display-box">
-                        <label>Active Event ID</label>
-                        <span id="active-event-id" class="event-id-value">--</span>
-                    </div>
-
-                    <div class="stats-grid">
-                        <div class="data-item">
-                            <label>Preço Alvo</label>
-                            <span id="price-to-beat" class="val">$--,---</span>
-                        </div>
-                        <div class="data-item">
-                            <label>Volume Total</label>
-                            <span id="market-volume" class="val">$--</span>
-                        </div>
-                    </div>
-
                     <div class="outcomes-grid">
                         <div class="outcome-item">
                             <label>UP Odds</label>
-                            <span id="up-outcome-price" class="val up-val">--¢</span>
+                            <span id="up-outcome-price-stats" class="val up-val">--¢</span>
                         </div>
                         <div class="outcome-item">
                             <label>DOWN Odds</label>
-                            <span id="down-outcome-price" class="val down-val">--¢</span>
+                            <span id="down-outcome-price-stats" class="val down-val">--¢</span>
                         </div>
                     </div>
 
@@ -140,6 +124,30 @@
                         <label>Tempo Restante</label>
                         <span id="time-left" class="time-label">--:--</span>
                     </div>
+
+                    <div class="data-item center-align">
+                        <label>Preço Alvo</label>
+                        <span id="price-to-beat" class="val">$--,---</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Details Card (New) -->
+            <div class="card glass shadow event-info-card">
+                <h3>Detalhes do Evento</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>EVENT ID / SLUG</label>
+                        <div id="active-event-id" class="event-id-value">--</div>
+                    </div>
+                    <div class="info-item">
+                        <label>VOLUME TOTAL</label>
+                        <div id="market-volume" class="val premium-val">$--</div>
+                    </div>
+                </div>
+                <div class="status-indicator">
+                    <div class="dot pulse"></div>
+                    <span>Monitoramento Ativo</span>
                 </div>
             </div>
 

@@ -67,8 +67,8 @@ export class AssistantEngine {
         return { market: m, diff: Math.abs(durationSec - targetDurationSec) };
     }).sort((a, b) => a.diff - b.diff);
 
-    // Pick the one that matches best (within a reasonable margin, e.g. 10 mins)
-    const bestMatch = sortedByDuration.find(item => item.diff < 600);
+    // Pick the one that matches best (within a margin of 2 minutes)
+    const bestMatch = sortedByDuration.find(item => item.diff < 120);
     const discovered = bestMatch ? bestMatch.market : pickLatestLiveMarket(markets);
     
     // Update internal slug if auto-detected to sync with state
@@ -129,6 +129,9 @@ export class AssistantEngine {
       this.config.polymarket.seriesId = "10192"; // BTC 15m
       this.config.polymarket.seriesSlug = "btc-up-or-down-15m";
     }
+    
+    // Atualiza o estado imediatamente para evitar desvio no front
+    this.state.interval = minutes;
 
     // Changing timeframe re-enables auto-detect for that timeframe
     this.config.autoDetect = true;
