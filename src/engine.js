@@ -121,7 +121,6 @@ export class AssistantEngine {
     this.config.candleWindowMinutes = minutes;
     
     // Auto-switch series for BTC Price markets if not explicitly overridden
-    // Auto-switch series for BTC Price markets if not explicitly overridden
     if (minutes === 5) {
       this.config.polymarket.seriesId = "11054"; // BTC 5m
       this.config.polymarket.seriesSlug = "btc-up-or-down-5m";
@@ -133,8 +132,8 @@ export class AssistantEngine {
     // Atualiza o estado imediatamente para evitar desvio no front
     this.state.interval = minutes;
 
-    // Changing timeframe re-enables auto-detect for that timeframe
-    this.config.autoDetect = true;
+    // NOTE: autoDetect is NOT forced here — user's manual mode is preserved.
+    // If user is in AUTO mode, it remains AUTO. If manual, it stays manual.
 
     if (prev !== minutes) {
       this.history = { labels: [], prices: [], macdHist: [], rsi: [] };

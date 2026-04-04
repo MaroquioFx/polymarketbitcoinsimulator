@@ -21,7 +21,7 @@
     
     <!-- Open Graph / Social -->
     <meta property="og:title" content="Robo Cripto Polimarket - BTC Assistant">
-    <meta property="og:description" content="Assitente avançado de previsão de BTC para mercados do Polymarket.">
+    <meta property="og:description" content="Assitente avancado de previsao de BTC para mercados do Polymarket.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://www.polymarketbitcoinsimulator.com">
     <meta property="og:image" content="https://www.polymarketbitcoinsimulator.com/assets/banner.png">
@@ -58,14 +58,14 @@
     <main>
         <!-- Disclaimer Banner -->
         <div class="disclaimer-banner">
-            <p><strong>⚠️ DISCLAIMER:</strong> This tool is for <strong>educational and informational purposes only</strong>. It does <strong>not</strong> provide financial advice, buy or sell recommendations, or any guarantee of results. Cryptocurrency and prediction markets carry significant risk. <strong>Use of this tool is entirely at your own risk and responsibility.</strong></p>
+            <p><strong>&#9888;&#65039; DISCLAIMER:</strong> This tool is for <strong>educational and informational purposes only</strong>. It does <strong>not</strong> provide financial advice, buy or sell recommendations, or any guarantee of results. Cryptocurrency and prediction markets carry significant risk. <strong>Use of this tool is entirely at your own risk and responsibility.</strong></p>
         </div>
 
         <!-- Top Row: Prediction and Settings -->
         <section class="dashboard-grid top-row">
             <!-- Prediction / TA Card -->
             <div class="card glass shadow predict-card">
-                <h3>Previsão (TA)</h3>
+                <h3>Previsao (TA)</h3>
                 <div class="predict-display">
                     <div class="predict-bar-container">
                         <div id="up-bar" class="bar up" style="width: 50%;">
@@ -84,7 +84,7 @@
 
             <!-- Settings Card -->
             <div class="card glass shadow config-card">
-                <h3>Configurações</h3>
+                <h3>Configuracoes</h3>
                 <div class="interval-toggle">
                     <button class="interval-btn" data-min="5">5 Min</button>
                     <button class="interval-btn" data-min="15">15 Min</button>
@@ -99,7 +99,7 @@
             </div>
         </section>
 
-        <!-- Main Content Row: Market stats + Chart -->
+        <!-- Main Content Row: Market Stats | Chart | Event Details -->
         <section class="main-content-row">
             <!-- Market Stats Card -->
             <div class="card glass shadow market-stats-card">
@@ -112,12 +112,17 @@
                     <div class="outcomes-grid">
                         <div class="outcome-item">
                             <label>UP Odds</label>
-                            <span id="up-outcome-price-stats" class="val up-val">--¢</span>
+                            <span id="up-outcome-price-stats" class="val up-val">--c</span>
                         </div>
                         <div class="outcome-item">
                             <label>DOWN Odds</label>
-                            <span id="down-outcome-price-stats" class="val down-val">--¢</span>
+                            <span id="down-outcome-price-stats" class="val down-val">--c</span>
                         </div>
+                    </div>
+
+                    <div class="data-item">
+                        <label>Volume Negociado</label>
+                        <span id="market-volume" class="val up-val">$--</span>
                     </div>
 
                     <div class="timer-box">
@@ -126,13 +131,21 @@
                     </div>
 
                     <div class="data-item center-align">
-                        <label>Preço Alvo</label>
+                        <label>Preco Alvo</label>
                         <span id="price-to-beat" class="val">$--,---</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Event Details Card (New) -->
+            <!-- Chart Card -->
+            <div class="card glass shadow chart-card">
+                <h3>Historico de Mercado (BTC &amp; MACD Hist)</h3>
+                <div class="chart-inner-container">
+                    <canvas id="market-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Event Details Card (compacto, ao lado do grafico) -->
             <div class="card glass shadow event-info-card">
                 <h3>Detalhes do Evento</h3>
                 <div class="info-grid">
@@ -142,20 +155,12 @@
                     </div>
                     <div class="info-item">
                         <label>VOLUME TOTAL</label>
-                        <div id="market-volume" class="val premium-val">$--</div>
+                        <div id="market-volume-detail" class="val premium-val">$--</div>
                     </div>
                 </div>
                 <div class="status-indicator">
                     <div class="dot pulse"></div>
-                    <span>Monitoramento Ativo</span>
-                </div>
-            </div>
-
-            <!-- Chart Card -->
-            <div class="card glass shadow chart-card">
-                <h3>Histórico de Mercado (BTC & MACD Hist)</h3>
-                <div class="chart-inner-container">
-                    <canvas id="market-chart"></canvas>
+                    <span>Monitoring Active</span>
                 </div>
             </div>
         </section>
@@ -186,15 +191,15 @@
             </div>
             
             <div class="card glass poly-prices">
-                <h3>Preços Polymarket</h3>
+                <h3>Precos Polymarket</h3>
                 <div class="poly-grid">
                     <div class="outcome up">
                         <label>UP (SIM)</label>
-                        <span id="up-outcome-price" class="price">--¢</span>
+                        <span id="up-outcome-price" class="price">--c</span>
                     </div>
                     <div class="outcome down">
-                        <label>DOWN (NÃO)</label>
-                        <span id="down-outcome-price" class="price">--¢</span>
+                        <label>DOWN (NAO)</label>
+                        <span id="down-outcome-price" class="price">--c</span>
                     </div>
                 </div>
             </div>

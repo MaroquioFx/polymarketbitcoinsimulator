@@ -22,8 +22,8 @@ const upPriceStatsEl = document.getElementById('up-outcome-price-stats');
 const downPriceStatsEl = document.getElementById('down-outcome-price-stats');
 const activeEventIdEl = document.getElementById('active-event-id');
 const volumeEl = document.getElementById('market-volume');
+const volumeDetailEl = document.getElementById('market-volume-detail');
 const miniVolumeEl = document.getElementById('volume-indicator-mini');
-const eventTitleDisplay = document.getElementById('market-title');
 
 const intervalBtns = document.querySelectorAll('.interval-btn');
 const eventInput = document.getElementById('event-input');
@@ -84,6 +84,7 @@ function updateUI(data) {
         
         const volStr = data.market.volume ? '$' + Number(data.market.volume).toLocaleString('en-US', { maximumFractionDigits: 0 }) : '$--';
         volumeEl.textContent = volStr;
+        if (volumeDetailEl) volumeDetailEl.textContent = volStr;
         if (miniVolumeEl) miniVolumeEl.textContent = volStr;
         
         // Sync input field if in auto-detect mode
@@ -251,16 +252,16 @@ intervalBtns.forEach(btn => {
         btn.classList.add('active');
         activeInterval = min;
         
-        // Limpa estado anterior para nova análise
+        // Limpa gráfico para nova análise do timeframe
         clearChart();
         activeEventIdEl.textContent = 'Buscando...';
-        if (eventInput.disabled) eventInput.value = '';
 
         try {
+            // Ao mudar o timeframe, não força autoDetect — preserva escolha manual do usuário
             await fetch('/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ interval: min, autoDetect: true }) // Ao mudar time, força auto-detect para achar a nova série
+                body: JSON.stringify({ interval: min })
             });
         } catch (e) {
             console.error('Erro ao atualizar intervalo:', e);
