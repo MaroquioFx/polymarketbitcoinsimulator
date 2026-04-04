@@ -161,19 +161,32 @@ main {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1rem;
+    margin-bottom: 1.2rem;
 }
 
-.data-item label {
+.market-outcomes-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    gap: 0.8rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--glass-border);
+}
+
+.outcome-item label {
     display: block;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-dim);
+    text-transform: uppercase;
 }
 
-.data-item .val, .data-item .time-label {
+.outcome-item .val, .outcome-item .time-label {
     font-family: var(--font-value);
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: 700;
 }
+
+.outcome-item .up-val { color: var(--accent); }
+.outcome-item .down-val { color: var(--accent-red); }
 
 .interval-badge {
     background-color: white;

@@ -53,9 +53,20 @@ export class AssistantEngine {
     }
     
     // Priority 2: Auto-discovery using the current seriesId
-    const events = await fetchLiveEventsBySeriesId({ seriesId: this.config.polymarket.seriesId, limit: 10 });
+    const events = await fetchLiveEventsBySeriesId({ seriesId: this.config.polymarket.seriesId, limit: 20 });
     const markets = flattenEventMarkets(events);
-    const discovered = pickLatestLiveMarket(markets);
+    
+    // Filter markets based on duration (matching or close to the candle window)
+    const targetDurationSec = this.config.candleWindowMinutes * 60;
+    const matchingMarkets = markets.filter(m => {
+        const start = new Date(m.eventStartTime || m.startTime || m.startDate || 0).getTime();
+        const end = new Date(m.endDate || 0).getTime();
+        const durationSec = Math.round((end - start) / 1000);
+        // Allow small margin of error for duration
+        return Math.abs(durationSec - targetDurationSec) < 60;
+    });
+
+    const discovered = pickLatestLiveMarket(matchingMarkets);
     
     // Update internal slug if auto-detected to sync with state
     if (discovered && this.config.autoDetect) {
@@ -245,7 +256,7 @@ export class AssistantEngine {
           btcPrice: spotPrice,
           polymarketPrice: currentPrice,
           priceToBeat: this.priceToBeatState.value,
-          market: poly.ok ? poly.market : null,
+          market: poly.ok ? { ...poly.market, volume: poly.market.volume } : null,
           prices: { up: marketUp, down: marketDown },
           timeLeft: timeLeftMin,
           indicators: {

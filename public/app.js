@@ -19,6 +19,7 @@ const heikenVal = document.getElementById('heiken-val');
 const upPriceEl = document.getElementById('up-outcome-price');
 const downPriceEl = document.getElementById('down-outcome-price');
 const activeEventIdEl = document.getElementById('active-event-id');
+const volumeEl = document.getElementById('market-volume');
 
 const intervalBtns = document.querySelectorAll('.interval-btn');
 const eventInput = document.getElementById('event-input');
@@ -74,9 +75,10 @@ function updateUI(data) {
     
     if (data.market) {
         marketTitleEl.textContent = data.market.question || data.market.title || 'Mercado Ativo';
-        // Show active event ID / slug
-        const eventId = data.market.conditionId || data.market.slug || data.market.id || '--';
+        // Show active event ID / slug / conditionId
+        const eventId = data.market.slug || data.market.conditionId || data.market.id || '--';
         activeEventIdEl.textContent = eventId;
+        volumeEl.textContent = data.market.volume ? '$' + Number(data.market.volume).toLocaleString('en-US', { maximumFractionDigits: 0 }) : '$--';
     }
     
     timeLeftEl.textContent = formatMinutes(data.timeLeft);
@@ -226,10 +228,22 @@ function initChart() {
 }
 
 intervalBtns.forEach(btn => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
+        const min = parseInt(btn.dataset.min);
         intervalBtns.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        activeInterval = btn.dataset.min;
+        activeInterval = min;
+        
+        // Trigger immediate update
+        try {
+            await fetch('/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ interval: min })
+            });
+        } catch (e) {
+            console.error('Erro ao atualizar intervalo:', e);
+        }
     };
 });
 
