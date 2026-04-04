@@ -55,7 +55,7 @@ function connect() {
         statusBadge.className = 'status-badge online';
     };
     eventSource.onerror = () => {
-        statusBadge.textContent = 'Erro de Conexão';
+        statusBadge.textContent = 'Connection Error';
         statusBadge.className = 'status-badge connecting';
     };
     eventSource.onmessage = (event) => {
@@ -78,7 +78,7 @@ function updateUI(data) {
     }
     
     if (data.market) {
-        marketTitleEl.textContent = data.market.question || data.market.title || 'Mercado Ativo';
+        marketTitleEl.textContent = data.market.question || data.market.title || 'Active Market';
         const eventId = data.market.slug || data.market.conditionId || data.market.id || '--';
         activeEventIdEl.textContent = eventId;
         
@@ -113,13 +113,13 @@ function updateUI(data) {
     if (data.indicators.rsi) {
         const rsi = data.indicators.rsi;
         if (rsi > 55) {
-            rsiTendencyEl.textContent = 'COMPRA';
+            rsiTendencyEl.textContent = 'BUY';
             rsiTendencyEl.className = 'tendency buy';
         } else if (rsi < 45) {
-            rsiTendencyEl.textContent = 'VENDA';
+            rsiTendencyEl.textContent = 'SELL';
             rsiTendencyEl.className = 'tendency sell';
         } else {
-            rsiTendencyEl.textContent = 'NEUTRO';
+            rsiTendencyEl.textContent = 'NEUTRAL';
             rsiTendencyEl.className = 'tendency neutral';
         }
     }
@@ -134,13 +134,13 @@ function updateUI(data) {
     if (data.indicators.vwapDist !== undefined && data.indicators.vwapDist !== null) {
         const dist = data.indicators.vwapDist;
         if (dist > 0.0001) { // small threshold
-            vwapTendencyEl.textContent = 'COMPRA';
+            vwapTendencyEl.textContent = 'BUY';
             vwapTendencyEl.className = 'tendency buy';
         } else if (dist < -0.0001) {
-            vwapTendencyEl.textContent = 'VENDA';
+            vwapTendencyEl.textContent = 'SELL';
             vwapTendencyEl.className = 'tendency sell';
         } else {
-            vwapTendencyEl.textContent = 'NEUTRO';
+            vwapTendencyEl.textContent = 'NEUTRAL';
             vwapTendencyEl.className = 'tendency neutral';
         }
     }
@@ -254,7 +254,7 @@ intervalBtns.forEach(btn => {
         
         // Limpa gráfico para nova análise do timeframe
         clearChart();
-        activeEventIdEl.textContent = 'Buscando...';
+        activeEventIdEl.textContent = 'Searching...';
 
         try {
             // Ao mudar o timeframe, não força autoDetect — preserva escolha manual do usuário
@@ -278,7 +278,7 @@ applyBtn.onclick = async () => {
         else body.marketSlug = eventVal;
     }
     applyBtn.disabled = true;
-    applyBtn.textContent = 'Aplicando...';
+    applyBtn.textContent = 'Applying...';
     try {
         clearChart(); // Limpa imediatamente no front
         await fetch('/config', {
@@ -290,7 +290,7 @@ applyBtn.onclick = async () => {
         alert('Erro ao aplicar configuração');
     } finally {
         applyBtn.disabled = false;
-        applyBtn.textContent = 'Aplicar';
+        applyBtn.textContent = 'Apply';
     }
 };
 

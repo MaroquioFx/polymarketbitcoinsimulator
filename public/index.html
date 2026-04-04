@@ -12,7 +12,8 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robo Cripto Polimarket - Polymarket BTC Assistant</title>
+    <title>Polymarket BTC Simulator | Pro Dashboard</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     
     <!-- SEO Meta Tags -->
     <meta name="description" content="Dashboard em tempo real para assistente de trading no Polymarket (Mercado de BTC). Analise de RSI, MACD e VWAP.">
@@ -40,8 +41,8 @@
 <body class="dark-theme">
     <header>
         <div class="logo-area">
-            <h1>Robo Cripto <span>Polimarket</span></h1>
-            <div id="connection-status" class="status-badge connecting">Conectando...</div>
+            <h1>Crypto Bot <span>Polimarket</span></h1>
+            <div id="connection-status" class="status-badge connecting">Connecting...</div>
         </div>
         <div class="price-header">
             <div class="price-item">
@@ -65,7 +66,7 @@
         <section class="dashboard-grid top-row">
             <!-- Prediction / TA Card -->
             <div class="card glass shadow predict-card">
-                <h3>Previsao (TA)</h3>
+                <h3>Forecast (TA)</h3>
                 <div class="predict-display">
                     <div class="predict-bar-container">
                         <div id="up-bar" class="bar up" style="width: 50%;">
@@ -78,22 +79,22 @@
                         </div>
                     </div>
                 </div>
-                <div id="recommendation-badge" class="badge">AGUARDANDO</div>
+                <div id="recommendation-badge" class="badge">WAITING</div>
                 <div class="mini-volume">Volume Market: <span id="volume-indicator-mini">--</span></div>
             </div>
 
             <!-- Settings Card -->
             <div class="card glass shadow config-card">
-                <h3>Configuracoes</h3>
+                <h3>Settings</h3>
                 <div class="interval-toggle">
                     <button class="interval-btn" data-min="5">5 Min</button>
                     <button class="interval-btn" data-min="15">15 Min</button>
                 </div>
                 <div class="input-row" style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem;">
-                    <input type="text" id="event-input" placeholder="ID do Evento / Slug">
+                    <input type="text" id="event-input" placeholder="Event ID / Slug">
                     <div style="display: flex; gap: 0.5rem;">
                         <button id="auto-detect-btn" class="btn secondary" style="flex: 1; padding: 0.6rem; border-radius: 8px; background: rgba(39, 166, 154, 0.1); color: var(--accent); border: 1px solid var(--accent); font-weight: bold; cursor: pointer;">AUTO</button>
-                        <button id="apply-config" class="btn premium" style="flex: 2; margin-top: 0; padding: 0.6rem;">Aplicar</button>
+                        <button id="apply-config" class="btn premium" style="flex: 2; margin-top: 0; padding: 0.6rem;">Apply</button>
                     </div>
                 </div>
             </div>
@@ -104,7 +105,7 @@
             <!-- Market Stats Card -->
             <div class="card glass shadow market-stats-card">
                 <div class="card-header">
-                    <h2 id="market-title">Carregando...</h2>
+                    <h2 id="market-title">Loading...</h2>
                     <span id="current-interval-badge" class="interval-badge">-- min</span>
                 </div>
                 
@@ -121,17 +122,17 @@
                     </div>
 
                     <div class="data-item">
-                        <label>Volume Negociado</label>
+                        <label>Traded Volume</label>
                         <span id="market-volume" class="val up-val">$--</span>
                     </div>
 
                     <div class="timer-box">
-                        <label>Tempo Restante</label>
+                        <label>Time Remaining</label>
                         <span id="time-left" class="time-label">--:--</span>
                     </div>
 
                     <div class="data-item center-align">
-                        <label>Preco Alvo</label>
+                        <label>Target Price</label>
                         <span id="price-to-beat" class="val">$--,---</span>
                     </div>
                 </div>
@@ -139,7 +140,7 @@
 
             <!-- Chart Card -->
             <div class="card glass shadow chart-card">
-                <h3>Historico de Mercado (BTC &amp; MACD Hist)</h3>
+                <h3>Market History (BTC &amp; MACD Hist)</h3>
                 <div class="chart-inner-container">
                     <canvas id="market-chart"></canvas>
                 </div>
@@ -147,14 +148,14 @@
 
             <!-- Event Details Card (compacto, ao lado do grafico) -->
             <div class="card glass shadow event-info-card">
-                <h3>Detalhes do Evento</h3>
+                <h3>Event Details</h3>
                 <div class="info-grid">
                     <div class="info-item">
                         <label>EVENT ID / SLUG</label>
                         <div id="active-event-id" class="event-id-value">--</div>
                     </div>
                     <div class="info-item">
-                        <label>VOLUME TOTAL</label>
+                        <label>TOTAL VOLUME</label>
                         <div id="market-volume-detail" class="val premium-val">$--</div>
                     </div>
                 </div>
@@ -191,7 +192,7 @@
             </div>
             
             <div class="card glass poly-prices">
-                <h3>Precos Polymarket</h3>
+                <h3>Polymarket Odds</h3>
                 <div class="poly-grid">
                     <div class="outcome up">
                         <label>UP (SIM)</label>
@@ -210,7 +211,7 @@
         <div class="footer-disclaimer">
             <p><strong>FINANCIAL DISCLAIMER:</strong> Trading cryptocurrencies and binary outcome markets involves significant risk. The information provided by this assistant is for educational purposes only and should not be considered financial advice. We are not responsible for any financial losses or gains. Trade at your own risk.</p>
         </div>
-        <p class="copyright">&copy; 2026 Robo Cripto Polimarket &bull; All rights reserved</p>
+        <p class="copyright">&copy; 2026 Crypto Bot Polimarket &bull; All rights reserved</p>
     </footer>
 
     <script src="app.js"></script>

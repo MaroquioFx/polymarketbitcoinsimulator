@@ -56,20 +56,8 @@ export class AssistantEngine {
     const events = await fetchLiveEventsBySeriesId({ seriesId: this.config.polymarket.seriesId, limit: 20 });
     const markets = flattenEventMarkets(events);
     
-    // Filter markets based on duration (matching or close to the candle window)
-    const targetDurationSec = this.config.candleWindowMinutes * 60;
-    
-    // Sort by proximity to target duration
-    const sortedByDuration = markets.map(m => {
-        const start = new Date(m.eventStartTime || m.startTime || m.startDate || 0).getTime();
-        const end = new Date(m.endDate || 0).getTime();
-        const durationSec = Math.round((end - start) / 1000);
-        return { market: m, diff: Math.abs(durationSec - targetDurationSec) };
-    }).sort((a, b) => a.diff - b.diff);
-
-    // Pick the one that matches best (within a margin of 2 minutes)
-    const bestMatch = sortedByDuration.find(item => item.diff < 120);
-    const discovered = bestMatch ? bestMatch.market : pickLatestLiveMarket(markets);
+    // Pick the most relevant market for the current timeframe from our known series
+    const discovered = pickLatestLiveMarket(markets);
     
     // Update internal slug if auto-detected to sync with state
     if (discovered && this.config.autoDetect) {
@@ -122,7 +110,7 @@ export class AssistantEngine {
     
     // Auto-switch series for BTC Price markets if not explicitly overridden
     if (minutes === 5) {
-      this.config.polymarket.seriesId = "11054"; // BTC 5m
+      this.config.polymarket.seriesId = "10684"; // BTC 5m
       this.config.polymarket.seriesSlug = "btc-up-or-down-5m";
     } else if (minutes === 15) {
       this.config.polymarket.seriesId = "10192"; // BTC 15m
