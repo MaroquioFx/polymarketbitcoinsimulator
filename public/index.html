@@ -61,44 +61,8 @@
             <p><strong>⚠️ DISCLAIMER:</strong> This tool is for <strong>educational and informational purposes only</strong>. It does <strong>not</strong> provide financial advice, buy or sell recommendations, or any guarantee of results. Cryptocurrency and prediction markets carry significant risk. <strong>Use of this tool is entirely at your own risk and responsibility.</strong></p>
         </div>
 
-        <!-- Top Row: Compact Grid for Market, Prediction, and Settings -->
-        <section class="dashboard-grid">
-            <!-- Market Info Card -->
-            <div class="card glass shadow market-info-compact">
-                <div class="card-header">
-                    <h2 id="market-title">Carregando mercado...</h2>
-                    <span id="current-interval-badge" class="interval-badge">-- min</span>
-                </div>
-                <div class="event-id-display">
-                    <label>Event ID:</label>
-                    <span id="active-event-id" class="event-id-value">--</span>
-                </div>
-                <div class="market-data">
-                    <div class="data-item">
-                        <label>Preço Alvo</label>
-                        <span id="price-to-beat" class="val">$--,---</span>
-                    </div>
-                    <div class="data-item">
-                        <label>Volume Total</label>
-                        <span id="market-volume" class="val">$--</span>
-                    </div>
-                </div>
-                <div class="market-outcomes-row">
-                    <div class="outcome-item">
-                        <label>UP (Odds)</label>
-                        <span id="up-outcome-price" class="val up-val">--¢</span>
-                    </div>
-                    <div class="outcome-item">
-                        <label>DOWN (Odds)</label>
-                        <span id="down-outcome-price" class="val down-val">--¢</span>
-                    </div>
-                    <div class="outcome-item">
-                        <label>Time Left</label>
-                        <span id="time-left" class="time-label">--:--</span>
-                    </div>
-                </div>
-            </div>
-
+        <!-- Top Row: Prediction and Settings -->
+        <section class="dashboard-grid top-row">
             <!-- Prediction / TA Card -->
             <div class="card glass shadow predict-card">
                 <h3>Previsão (TA)</h3>
@@ -115,6 +79,7 @@
                     </div>
                 </div>
                 <div id="recommendation-badge" class="badge">AGUARDANDO</div>
+                <div class="mini-volume">Volume Market: <span id="volume-indicator-mini">--</span></div>
             </div>
 
             <!-- Settings Card -->
@@ -123,7 +88,6 @@
                 <div class="interval-toggle">
                     <button class="interval-btn" data-min="5">5 Min</button>
                     <button class="interval-btn" data-min="15">15 Min</button>
-                    <button class="interval-btn" data-min="60">1 Hour</button>
                 </div>
                 <div class="input-row" style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem;">
                     <input type="text" id="event-input" placeholder="ID do Evento / Slug">
@@ -135,8 +99,51 @@
             </div>
         </section>
 
-        <!-- Chart row -->
-        <section class="chart-row">
+        <!-- Main Content Row: Market stats + Chart -->
+        <section class="main-content-row">
+            <!-- Market Stats Card -->
+            <div class="card glass shadow market-stats-card">
+                <div class="card-header">
+                    <h2 id="market-title">Carregando mercado...</h2>
+                    <span id="current-interval-badge" class="interval-badge">-- min</span>
+                </div>
+                
+                <div class="market-data-grid">
+                    <div class="event-id-display-box">
+                        <label>Active Event ID</label>
+                        <span id="active-event-id" class="event-id-value">--</span>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="data-item">
+                            <label>Preço Alvo</label>
+                            <span id="price-to-beat" class="val">$--,---</span>
+                        </div>
+                        <div class="data-item">
+                            <label>Volume Total</label>
+                            <span id="market-volume" class="val">$--</span>
+                        </div>
+                    </div>
+
+                    <div class="outcomes-grid">
+                        <div class="outcome-item">
+                            <label>UP Odds</label>
+                            <span id="up-outcome-price" class="val up-val">--¢</span>
+                        </div>
+                        <div class="outcome-item">
+                            <label>DOWN Odds</label>
+                            <span id="down-outcome-price" class="val down-val">--¢</span>
+                        </div>
+                    </div>
+
+                    <div class="timer-box">
+                        <label>Tempo Restante</label>
+                        <span id="time-left" class="time-label">--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Card -->
             <div class="card glass shadow chart-card">
                 <h3>Histórico de Mercado (BTC & MACD Hist)</h3>
                 <div class="chart-inner-container">

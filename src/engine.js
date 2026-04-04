@@ -58,15 +58,18 @@ export class AssistantEngine {
     
     // Filter markets based on duration (matching or close to the candle window)
     const targetDurationSec = this.config.candleWindowMinutes * 60;
-    const matchingMarkets = markets.filter(m => {
+    
+    // Sort by proximity to target duration
+    const sortedByDuration = markets.map(m => {
         const start = new Date(m.eventStartTime || m.startTime || m.startDate || 0).getTime();
         const end = new Date(m.endDate || 0).getTime();
         const durationSec = Math.round((end - start) / 1000);
-        // Allow small margin of error for duration
-        return Math.abs(durationSec - targetDurationSec) < 60;
-    });
+        return { market: m, diff: Math.abs(durationSec - targetDurationSec) };
+    }).sort((a, b) => a.diff - b.diff);
 
-    const discovered = pickLatestLiveMarket(matchingMarkets);
+    // Pick the one that matches best (within a reasonable margin, e.g. 10 mins)
+    const bestMatch = sortedByDuration.find(item => item.diff < 600);
+    const discovered = bestMatch ? bestMatch.market : pickLatestLiveMarket(markets);
     
     // Update internal slug if auto-detected to sync with state
     if (discovered && this.config.autoDetect) {
@@ -118,16 +121,17 @@ export class AssistantEngine {
     this.config.candleWindowMinutes = minutes;
     
     // Auto-switch series for BTC Price markets if not explicitly overridden
+    // Auto-switch series for BTC Price markets if not explicitly overridden
     if (minutes === 5) {
       this.config.polymarket.seriesId = "11054"; // BTC 5m
       this.config.polymarket.seriesSlug = "btc-up-or-down-5m";
     } else if (minutes === 15) {
       this.config.polymarket.seriesId = "10192"; // BTC 15m
       this.config.polymarket.seriesSlug = "btc-up-or-down-15m";
-    } else if (minutes === 60) {
-      this.config.polymarket.seriesId = "10192"; // BTC 1h (uses broader series)
-      this.config.polymarket.seriesSlug = "btc-up-or-down-1h";
     }
+
+    // Changing timeframe re-enables auto-detect for that timeframe
+    this.config.autoDetect = true;
 
     if (prev !== minutes) {
       this.history = { labels: [], prices: [], macdHist: [], rsi: [] };

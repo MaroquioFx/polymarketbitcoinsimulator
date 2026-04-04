@@ -20,6 +20,8 @@ const upPriceEl = document.getElementById('up-outcome-price');
 const downPriceEl = document.getElementById('down-outcome-price');
 const activeEventIdEl = document.getElementById('active-event-id');
 const volumeEl = document.getElementById('market-volume');
+const miniVolumeEl = document.getElementById('volume-indicator-mini');
+const eventTitleDisplay = document.getElementById('market-title');
 
 const intervalBtns = document.querySelectorAll('.interval-btn');
 const eventInput = document.getElementById('event-input');
@@ -75,10 +77,17 @@ function updateUI(data) {
     
     if (data.market) {
         marketTitleEl.textContent = data.market.question || data.market.title || 'Mercado Ativo';
-        // Show active event ID / slug / conditionId
         const eventId = data.market.slug || data.market.conditionId || data.market.id || '--';
         activeEventIdEl.textContent = eventId;
-        volumeEl.textContent = data.market.volume ? '$' + Number(data.market.volume).toLocaleString('en-US', { maximumFractionDigits: 0 }) : '$--';
+        
+        const volStr = data.market.volume ? '$' + Number(data.market.volume).toLocaleString('en-US', { maximumFractionDigits: 0 }) : '$--';
+        volumeEl.textContent = volStr;
+        if (miniVolumeEl) miniVolumeEl.textContent = volStr;
+        
+        // Sync input field if in auto-detect mode
+        if (data.autoDetect && eventId !== '--') {
+            eventInput.value = eventId;
+        }
     }
     
     timeLeftEl.textContent = formatMinutes(data.timeLeft);
