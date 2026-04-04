@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node server.js",
     "dashboard": "node server.js"
   },
   "dependencies": {
