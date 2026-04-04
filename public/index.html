@@ -1,218 +1,329 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FRH2Y5H92B"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-FRH2Y5H92B"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-FRH2Y5H92B');
+  </script>
 
-      gtag('config', 'G-FRH2Y5H92B');
-    </script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Polymarket BTC Simulator | Pro Dashboard</title>
-    <link rel="icon" type="image/png" href="favicon.png">
-    
-    <!-- SEO Meta Tags -->
-    <meta name="description" content="Dashboard em tempo real para assistente de trading no Polymarket (Mercado de BTC). Analise de RSI, MACD e VWAP.">
-    <meta name="keywords" content="polymarket, btc, crypto, trading bot, dashboard, technical analysis">
-    <meta name="author" content="MaroquioFx">
-    
-    <!-- Open Graph / Social -->
-    <meta property="og:title" content="Robo Cripto Polimarket - BTC Assistant">
-    <meta property="og:description" content="Assitente avancado de previsao de BTC para mercados do Polymarket.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://www.polymarketbitcoinsimulator.com">
-    <meta property="og:image" content="https://www.polymarketbitcoinsimulator.com/assets/banner.png">
-    
-    <!-- PWA & Favicon -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#5d5fef">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Polymarket BTC | Pro Dashboard</title>
+  <meta name="description" content="Dashboard profissional em tempo real para sinais de Bitcoin no Polymarket. RSI, MACD, VWAP e previsão TA.">
+  <meta name="keywords" content="polymarket, btc, bitcoin, trading, dashboard, sinais, TA">
+  <meta name="author" content="MaroquioFx">
+  <meta property="og:title" content="Polymarket BTC Pro Dashboard">
+  <meta property="og:description" content="Dashboard de sinais BTC em tempo real para mercados do Polymarket.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.polymarketbitcoinsimulator.com">
 
-    <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- PWA -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#00d4aa">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="style.css">
 </head>
-<body class="dark-theme">
-    <header>
-        <div class="logo-area">
-            <h1>Crypto Bot <span>Polimarket</span></h1>
-            <div id="connection-status" class="status-badge connecting">Connecting...</div>
+<body>
+
+  <!-- ═══════════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════════════ -->
+  <header class="site-header">
+    <div class="header-left">
+      <div class="logo">
+        <span class="logo-icon">₿</span>
+        <span class="logo-text">BTC <em>Polymarket</em> Assistant</span>
+      </div>
+      <div id="connection-status" class="status-pill connecting">● Connecting…</div>
+    </div>
+    <div class="header-prices">
+      <div class="price-chip">
+        <span class="price-label">BTC Binance</span>
+        <span id="btc-price" class="price-value mono">$--,---</span>
+      </div>
+      <div class="price-chip">
+        <span class="price-label">Chainlink</span>
+        <span id="poly-price" class="price-value mono">$--,---</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- DISCLAIMER -->
+  <div class="disclaimer">
+    ⚠️ <strong>DISCLAIMER:</strong> Ferramenta educacional. Não constitui conselho financeiro. Use por sua conta e risco.
+  </div>
+
+  <main class="dashboard">
+
+    <!-- ══════════════════════════════════════════
+         ROW 1 — FORECAST BAR + SETTINGS
+    ══════════════════════════════════════════════ -->
+    <section class="row-top">
+
+      <!-- FORECAST CARD -->
+      <div class="card forecast-card">
+        <div class="card-label">Forecast (TA)</div>
+        <div class="forecast-bar-wrap">
+          <div id="up-bar" class="fbar fbar-up" style="width:50%">
+            <span class="lbl">LONG</span>
+            <span class="pct">50%</span>
+          </div>
+          <div id="down-bar" class="fbar fbar-down" style="width:50%">
+            <span class="pct">50%</span>
+            <span class="lbl">SHORT</span>
+          </div>
         </div>
-        <div class="price-header">
-            <div class="price-item">
-                <label>BTC (Binance)</label>
-                <span id="btc-price" class="value">$--,---</span>
-            </div>
-            <div class="price-item">
-                <label>Polymarket (Chainlink)</label>
-                <span id="poly-price" class="value">$--,---</span>
-            </div>
+        <div class="forecast-meta">
+          <div id="recommendation-badge" class="badge badge-wait">WAITING</div>
+          <div id="confidence-badge" class="conf-badge conf-low">LOW</div>
+          <button id="enter-signal-btn" class="enter-btn hidden">ENTER ↑</button>
         </div>
-    </header>
+        <div class="mini-vol">Market Volume: <span id="volume-indicator-mini" class="mono">--</span></div>
+      </div>
 
-    <main>
-        <!-- Disclaimer Banner -->
-        <div class="disclaimer-banner">
-            <p><strong>&#9888;&#65039; DISCLAIMER:</strong> This tool is for <strong>educational and informational purposes only</strong>. It does <strong>not</strong> provide financial advice, buy or sell recommendations, or any guarantee of results. Cryptocurrency and prediction markets carry significant risk. <strong>Use of this tool is entirely at your own risk and responsibility.</strong></p>
+      <!-- SETTINGS CARD -->
+      <div class="card settings-card">
+        <div class="card-label">Settings</div>
+        <div class="interval-row">
+          <button class="interval-btn" data-min="5">5 Min</button>
+          <button class="interval-btn active" data-min="15">15 Min</button>
+          <span id="current-interval-badge" class="interval-badge">15 min</span>
+        </div>
+        <div class="settings-inputs">
+          <input type="text" id="event-input" placeholder="Event ID / Slug (auto)">
+          <div class="btn-row">
+            <button id="auto-detect-btn" class="btn btn-auto">AUTO</button>
+            <button id="apply-config" class="btn btn-apply">Apply</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         ROW 2 — EVENT INFO | CHART | DETAILS
+    ══════════════════════════════════════════════ -->
+    <section class="row-mid">
+
+      <!-- COL 1: EVENT INFO -->
+      <div class="card event-info-card">
+        <div class="card-label">Event Info</div>
+        <div class="pair-name">BTC UP OR DOWN</div>
+
+        <div class="odds-row">
+          <div class="odds-chip up">
+            <span class="odds-label">UP</span>
+            <span id="up-outcome-price-stats" class="odds-val mono">--¢</span>
+          </div>
+          <div class="odds-chip down">
+            <span class="odds-label">DOWN</span>
+            <span id="down-outcome-price-stats" class="odds-val mono">--¢</span>
+          </div>
         </div>
 
-        <!-- Top Row: Prediction and Settings -->
-        <section class="dashboard-grid top-row">
-            <!-- Prediction / TA Card -->
-            <div class="card glass shadow predict-card">
-                <h3>Forecast (TA)</h3>
-                <div class="predict-display">
-                    <div class="predict-bar-container">
-                        <div id="up-bar" class="bar up" style="width: 50%;">
-                            <span class="pct">50%</span>
-                            <span class="lbl">LONG</span>
-                        </div>
-                        <div id="down-bar" class="bar down" style="width: 50%;">
-                            <span class="lbl">SHORT</span>
-                            <span class="pct">50%</span>
-                        </div>
-                    </div>
-                </div>
-                <div id="recommendation-badge" class="badge">WAITING</div>
-                <div class="mini-volume">Volume Market: <span id="volume-indicator-mini">--</span></div>
-            </div>
-
-            <!-- Settings Card -->
-            <div class="card glass shadow config-card">
-                <h3>Settings</h3>
-                <div class="interval-toggle">
-                    <button class="interval-btn" data-min="5">5 Min</button>
-                    <button class="interval-btn" data-min="15">15 Min</button>
-                </div>
-                <div class="input-row" style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem;">
-                    <input type="text" id="event-input" placeholder="Event ID / Slug">
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button id="auto-detect-btn" class="btn secondary" style="flex: 1; padding: 0.6rem; border-radius: 8px; background: rgba(39, 166, 154, 0.1); color: var(--accent); border: 1px solid var(--accent); font-weight: bold; cursor: pointer;">AUTO</button>
-                        <button id="apply-config" class="btn premium" style="flex: 2; margin-top: 0; padding: 0.6rem;">Apply</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Main Content Row: Market Stats | Chart | Event Details -->
-        <section class="main-content-row">
-            <!-- Market Stats Card -->
-            <div class="card glass shadow market-stats-card">
-                <div class="card-header">
-                    <h2 id="market-title">Loading...</h2>
-                    <span id="current-interval-badge" class="interval-badge">-- min</span>
-                </div>
-                
-                <div class="market-data-grid">
-                    <div class="outcomes-grid">
-                        <div class="outcome-item">
-                            <label>UP Odds</label>
-                            <span id="up-outcome-price-stats" class="val up-val">--c</span>
-                        </div>
-                        <div class="outcome-item">
-                            <label>DOWN Odds</label>
-                            <span id="down-outcome-price-stats" class="val down-val">--c</span>
-                        </div>
-                    </div>
-
-                    <div class="data-item">
-                        <label>Traded Volume</label>
-                        <span id="market-volume" class="val up-val">$--</span>
-                    </div>
-
-                    <div class="timer-box">
-                        <label>Time Remaining</label>
-                        <span id="time-left" class="time-label">--:--</span>
-                    </div>
-
-                    <div class="data-item center-align">
-                        <label>Target Price</label>
-                        <span id="price-to-beat" class="val">$--,---</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Chart Card -->
-            <div class="card glass shadow chart-card">
-                <h3>Market History (BTC &amp; MACD Hist)</h3>
-                <div class="chart-inner-container">
-                    <canvas id="market-chart"></canvas>
-                </div>
-            </div>
-
-            <!-- Event Details Card (compacto, ao lado do grafico) -->
-            <div class="card glass shadow event-info-card">
-                <h3>Event Details</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>EVENT ID / SLUG</label>
-                        <div id="active-event-id" class="event-id-value">--</div>
-                    </div>
-                    <div class="info-item">
-                        <label>TOTAL VOLUME</label>
-                        <div id="market-volume-detail" class="val premium-val">$--</div>
-                    </div>
-                </div>
-                <div class="status-indicator">
-                    <div class="dot pulse"></div>
-                    <span>Monitoring Active</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Indicators row -->
-        <section class="indicators-row">
-            <div class="indicators-grid">
-                <div class="card glass indicator">
-                    <label>RSI</label>
-                    <span id="rsi-val" class="val">--.-</span>
-                    <div id="rsi-tendency" class="tendency">--</div>
-                    <span id="rsi-slope" class="sub">--</span>
-                </div>
-                <div class="card glass indicator">
-                    <label>MACD</label>
-                    <span id="macd-val" class="val">--</span>
-                </div>
-                <div class="card glass indicator">
-                    <label>VWAP</label>
-                    <span id="vwap-val" class="val">--</span>
-                    <div id="vwap-tendency" class="tendency">--</div>
-                    <span id="vwap-dist" class="sub">--%</span>
-                </div>
-                <div class="card glass indicator">
-                    <label>Heiken Ashi</label>
-                    <span id="heiken-val" class="val">--</span>
-                </div>
-            </div>
-            
-            <div class="card glass poly-prices">
-                <h3>Polymarket Odds</h3>
-                <div class="poly-grid">
-                    <div class="outcome up">
-                        <label>UP (SIM)</label>
-                        <span id="up-outcome-price" class="price">--c</span>
-                    </div>
-                    <div class="outcome down">
-                        <label>DOWN (NAO)</label>
-                        <span id="down-outcome-price" class="price">--c</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <footer>
-        <div class="footer-disclaimer">
-            <p><strong>FINANCIAL DISCLAIMER:</strong> Trading cryptocurrencies and binary outcome markets involves significant risk. The information provided by this assistant is for educational purposes only and should not be considered financial advice. We are not responsible for any financial losses or gains. Trade at your own risk.</p>
+        <div class="info-row">
+          <span class="info-lbl">Volume</span>
+          <span id="market-volume" class="info-val mono up-col">$--</span>
         </div>
-        <p class="copyright">&copy; 2026 Crypto Bot Polimarket &bull; All rights reserved</p>
-    </footer>
 
-    <script src="app.js"></script>
+        <!-- Circular countdown -->
+        <div class="countdown-wrap">
+          <svg class="countdown-svg" viewBox="0 0 60 60">
+            <circle cx="30" cy="30" r="26" class="countdown-track"/>
+            <circle id="countdown-ring" cx="30" cy="30" r="26" class="countdown-fill"/>
+          </svg>
+          <div class="countdown-inner">
+            <span id="time-left" class="countdown-time mono">--:--</span>
+            <span class="countdown-sub">remaining</span>
+          </div>
+        </div>
+
+        <div class="info-row target-row">
+          <span class="info-lbl">Target Price</span>
+          <span id="price-to-beat" class="info-val mono accent-col">$--,---</span>
+        </div>
+        <div class="info-row">
+          <span class="info-lbl">Market</span>
+          <span id="market-title" class="info-val small-text">Loading…</span>
+        </div>
+      </div>
+
+      <!-- COL 2: CHART -->
+      <div class="card chart-card">
+        <div class="chart-header">
+          <span class="card-label">Price & MACD History</span>
+          <div class="live-badge">
+            <span class="live-dot"></span>
+            LIVE · updated <span id="last-update-ago">0s</span> ago
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="market-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- COL 3: DETAILS -->
+      <div class="card details-card">
+        <div class="card-label">Event Details</div>
+
+        <div class="detail-item">
+          <span class="dl">SLUG</span>
+          <div id="active-event-id" class="detail-slug" title="Click to copy" onclick="copySlug()">--</div>
+        </div>
+        <div class="detail-item">
+          <span class="dl">VOLUME</span>
+          <div id="market-volume-detail" class="detail-val mono">$--</div>
+        </div>
+
+        <div class="monitoring-bar">
+          <span class="pulse-dot"></span>
+          <span>Monitoring Active</span>
+        </div>
+
+        <!-- Signal History -->
+        <div class="signal-history-wrap">
+          <div class="dl">Últimos Sinais</div>
+          <ul id="signal-history-list" class="signal-history">
+            <li class="sh-empty">Aguardando dados…</li>
+          </ul>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         ROW 3 — INDICATORS + POLYMARKET ODDS
+    ══════════════════════════════════════════════ -->
+    <section class="row-bot">
+
+      <!-- INDICATORS GRID 2x2 -->
+      <div class="indicators-grid">
+
+        <!-- RSI -->
+        <div class="card ind-card" id="ind-rsi" data-signal="buy">
+          <div class="ind-top">
+            <span class="ind-name">RSI</span>
+            <span class="ind-badge badge-buy">BUY</span>
+          </div>
+          <div class="ind-value-row">
+            <span id="rsi-val" class="ind-value mono">55.2</span>
+            <span id="rsi-slope" class="ind-slope">↑</span>
+          </div>
+          <div id="rsi-tendency" class="tendency buy">BUY</div>
+          <svg class="sparkline" id="spark-rsi" viewBox="0 0 60 20"></svg>
+        </div>
+
+        <!-- MACD -->
+        <div class="card ind-card" id="ind-macd" data-signal="sell">
+          <div class="ind-top">
+            <span class="ind-name">MACD</span>
+            <span class="ind-badge badge-sell">BEARISH</span>
+          </div>
+          <div class="ind-value-row">
+            <span id="macd-val" class="ind-value mono">-3.2</span>
+            <span class="ind-sub">Sig: <span id="macd-signal-val" class="mono">-2.8</span></span>
+          </div>
+          <svg class="sparkline" id="spark-macd" viewBox="0 0 60 20"></svg>
+        </div>
+
+        <!-- VWAP -->
+        <div class="card ind-card" id="ind-vwap" data-signal="buy">
+          <div class="ind-top">
+            <span class="ind-name">VWAP</span>
+            <span class="ind-badge badge-buy">BUY</span>
+          </div>
+          <div class="ind-value-row">
+            <span id="vwap-val" class="ind-value mono">67,324</span>
+          </div>
+          <div id="vwap-tendency" class="tendency buy">BUY</div>
+          <span id="vwap-dist" class="ind-sub">+0.12%</span>
+          <svg class="sparkline" id="spark-vwap" viewBox="0 0 60 20"></svg>
+        </div>
+
+        <!-- Heiken Ashi -->
+        <div class="card ind-card" id="ind-heiken" data-signal="buy">
+          <div class="ind-top">
+            <span class="ind-name">Heiken Ashi</span>
+            <span class="ind-badge badge-buy">BUY</span>
+          </div>
+          <div class="ind-value-row">
+            <span id="heiken-val" class="ind-value mono">green x3</span>
+          </div>
+          <svg class="sparkline" id="spark-heiken" viewBox="0 0 60 20"></svg>
+        </div>
+
+        <!-- Signal Confluence -->
+        <div class="card ind-card confluence-card" id="ind-confluence" data-signal="neutral">
+          <div class="ind-top">
+            <span class="ind-name">Signal Confluence</span>
+            <span id="confluence-badge" class="ind-badge badge-neutral">NEUTRAL</span>
+          </div>
+          <div class="confluence-count">
+            <span id="confluence-num" class="mono conf-num">3</span>
+            <span class="conf-of">/4 → </span>
+            <span id="confluence-dir" class="conf-dir">LONG</span>
+          </div>
+          <div class="conf-progress-wrap">
+            <div id="conf-progress-bar" class="conf-progress-bar" style="width:75%"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- POLYMARKET ODDS CARD -->
+      <div class="card poly-card">
+        <div class="card-label">Polymarket Odds</div>
+
+        <div class="poly-outcome up-outcome">
+          <div class="poly-label">UP (SIM)</div>
+          <div class="poly-val-row">
+            <span id="up-outcome-price" class="poly-price mono">--¢</span>
+            <div class="poly-bar-wrap">
+              <div id="poly-bar-up" class="poly-bar-fill up-fill" style="width:58%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="poly-outcome down-outcome">
+          <div class="poly-label">DOWN (NÃO)</div>
+          <div class="poly-val-row">
+            <span id="down-outcome-price" class="poly-price mono">--¢</span>
+            <div class="poly-bar-wrap">
+              <div id="poly-bar-down" class="poly-bar-fill down-fill" style="width:41%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mini odds history chart -->
+        <div class="odds-history-wrap">
+          <div class="dl">Odds History</div>
+          <canvas id="odds-chart" height="60"></canvas>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>FINANCIAL DISCLAIMER:</strong> Esta ferramenta é exclusivamente educacional. Não constitui conselho financeiro. Criptomoedas e mercados de predição envolvem alto risco. Opere por sua conta e risco.</p>
+    <p class="copy">© 2026 Crypto Bot Polimarket · All rights reserved</p>
+  </footer>
+
+  <!-- Scripts: dashboard-ui.js ANTES de app.js -->
+  <script src="dashboard-ui.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
