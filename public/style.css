@@ -83,6 +83,45 @@ main {
     width: 100%;
 }
 
+.disclaimer-banner {
+    background: rgba(239, 83, 80, 0.08);
+    border: 1px solid rgba(239, 83, 80, 0.25);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+    text-align: center;
+}
+
+.disclaimer-banner strong {
+    color: var(--accent-red);
+}
+
+.event-id-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(93, 95, 239, 0.08);
+    border-radius: 6px;
+    font-size: 0.75rem;
+}
+
+.event-id-display label {
+    color: var(--text-dim);
+    font-weight: 600;
+}
+
+.event-id-value {
+    color: var(--primary);
+    font-family: var(--font-value);
+    font-weight: 700;
+    word-break: break-all;
+}
+
 .card {
     background: var(--card-bg);
     border: 1px solid var(--glass-border);
@@ -375,12 +414,6 @@ footer {
     border-top: 1px solid var(--glass-border);
     background: rgba(0, 0, 0, 0.2);
     margin-top: auto;
-}
-
-.footer-top {
-    margin-bottom: 1.5rem;
-    font-size: 0.8rem;
-    color: var(--text-dim);
 }
 
 .footer-disclaimer {

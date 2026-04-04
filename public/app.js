@@ -18,7 +18,7 @@ const vwapTendencyEl = document.getElementById('vwap-tendency');
 const heikenVal = document.getElementById('heiken-val');
 const upPriceEl = document.getElementById('up-outcome-price');
 const downPriceEl = document.getElementById('down-outcome-price');
-const lastUpdateEl = document.getElementById('last-update');
+const activeEventIdEl = document.getElementById('active-event-id');
 
 const intervalBtns = document.querySelectorAll('.interval-btn');
 const eventInput = document.getElementById('event-input');
@@ -74,6 +74,9 @@ function updateUI(data) {
     
     if (data.market) {
         marketTitleEl.textContent = data.market.question || data.market.title || 'Mercado Ativo';
+        // Show active event ID / slug
+        const eventId = data.market.conditionId || data.market.slug || data.market.id || '--';
+        activeEventIdEl.textContent = eventId;
     }
     
     timeLeftEl.textContent = formatMinutes(data.timeLeft);
@@ -145,8 +148,6 @@ function updateUI(data) {
     if (data.history && data.history.labels.length > 0) {
         updateChart(data.history);
     }
-
-    lastUpdateEl.textContent = new Date().toLocaleTimeString();
 }
 
 function updateChart(history) {

@@ -113,6 +113,9 @@ export class AssistantEngine {
     } else if (minutes === 15) {
       this.config.polymarket.seriesId = "10192"; // BTC 15m
       this.config.polymarket.seriesSlug = "btc-up-or-down-15m";
+    } else if (minutes === 60) {
+      this.config.polymarket.seriesId = "10192"; // BTC 1h (uses broader series)
+      this.config.polymarket.seriesSlug = "btc-up-or-down-1h";
     }
 
     if (prev !== minutes) {
@@ -259,7 +262,7 @@ export class AssistantEngine {
             down: timeAware.adjustedDown
           },
           interval: this.config.candleWindowMinutes,
-          autoDetect: this.autoDetect,
+          autoDetect: this.config.autoDetect,
           history: this.history,
           edge,
           rec,
