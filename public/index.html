@@ -12,7 +12,25 @@
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Polymarket BTC Assistant</title>
+    <title>Robo Cripto Polimarket - Polymarket BTC Assistant</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Dashboard em tempo real para assistente de trading no Polymarket (Mercado de BTC). Analise de RSI, MACD e VWAP.">
+    <meta name="keywords" content="polymarket, btc, crypto, trading bot, dashboard, technical analysis">
+    <meta name="author" content="MaroquioFx">
+    
+    <!-- Open Graph / Social -->
+    <meta property="og:title" content="Robo Cripto Polimarket - BTC Assistant">
+    <meta property="og:description" content="Assitente avançado de previsão de BTC para mercados do Polymarket.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://sosimular.com"> <!-- User domain from history -->
+    <meta property="og:image" content="https://sosimular.com/assets/banner.png">
+    
+    <!-- PWA & Favicon -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#5d5fef">
+
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,7 +40,7 @@
 <body class="dark-theme">
     <header>
         <div class="logo-area">
-            <h1>Polymarket <span>BTC Assistant</span></h1>
+            <h1>Robo Cripto <span>Polimarket</span></h1>
             <div id="connection-status" class="status-badge connecting">Conectando...</div>
         </div>
         <div class="price-header">
@@ -145,7 +163,13 @@
     </main>
 
     <footer>
-        <p>Dados atualizados em tempo real • <span id="last-update">--:--:--</span></p>
+        <div class="footer-top">
+            <p>Dados atualizados em tempo real • <span id="last-update">--:--:--</span></p>
+        </div>
+        <div class="footer-disclaimer">
+            <p><strong>FINANCIAL DISCLAIMER:</strong> Trading cryptocurrencies and binary outcome markets involves significant risk. The information provided by this assistant is for educational purposes only and should not be considered financial advice. We are not responsible for any financial losses or gains. Trade at your own risk.</p>
+        </div>
+        <p class="copyright">&copy; 2026 Robo Cripto Polimarket • Todos os direitos reservados</p>
     </footer>
 
     <script src="app.js"></script>
