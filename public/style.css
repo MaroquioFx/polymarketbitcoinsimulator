@@ -437,7 +437,7 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 .badge-neutral { background: rgba(107,114,128,0.15); color: var(--text-muted); }
 
 .ind-value-row { display: flex; align-items: baseline; gap: 0.5rem; }
-.ind-value { font-size: 1.2rem; font-weight: 700; color: var(--text); }
+.ind-value { font-size: 0.95rem; font-weight: 700; color: var(--text); }
 .ind-slope { font-size: 0.9rem; color: var(--text-muted); }
 .ind-sub   { font-size: 0.68rem; color: var(--text-muted); }
 
@@ -483,7 +483,7 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 .poly-outcome { display: flex; flex-direction: column; gap: 0.35rem; }
 .poly-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; }
 .poly-val-row { display: flex; align-items: center; gap: 0.5rem; }
-.poly-price { font-size: 1.3rem; font-weight: 800; }
+.poly-price { font-size: 1rem; font-weight: 800; }
 .up-outcome   .poly-price { color: var(--up); }
 .down-outcome .poly-price { color: var(--down); }
 
