@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FRH2Y5H92B"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-FRH2Y5H92B');
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polymarket BTC Assistant</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="dark-theme">
+    <header>
+        <div class="logo-area">
+            <h1>Polymarket <span>BTC Assistant</span></h1>
+            <div id="connection-status" class="status-badge connecting">Conectando...</div>
+        </div>
+        <div class="price-header">
+            <div class="price-item">
+                <label>BTC (Binance)</label>
+                <span id="btc-price" class="value">$--,---</span>
+            </div>
+            <div class="price-item">
+                <label>Polymarket (Chainlink)</label>
+                <span id="poly-price" class="value">$--,---</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Top Row: Compact Grid for Market, Prediction, and Settings -->
+        <section class="dashboard-grid">
+            <!-- Market Info Card -->
+            <div class="card glass shadow market-info-compact">
+                <div class="card-header">
+                    <h2 id="market-title">Carregando mercado...</h2>
+                    <span id="current-interval-badge" class="interval-badge">-- min</span>
+                </div>
+                <div class="market-data">
+                    <div class="data-item">
+                        <label>Preço Alvo</label>
+                        <span id="price-to-beat" class="val">$--,---</span>
+                    </div>
+                    <div class="data-item">
+                        <label>Tempo Restante</label>
+                        <span id="time-left" class="time-label">--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prediction / TA Card -->
+            <div class="card glass shadow predict-card">
+                <h3>Previsão (TA)</h3>
+                <div class="predict-display">
+                    <div class="predict-bar-container">
+                        <div id="up-bar" class="bar up" style="width: 50%;">
+                            <span class="pct">50%</span>
+                            <span class="lbl">LONG</span>
+                        </div>
+                        <div id="down-bar" class="bar down" style="width: 50%;">
+                            <span class="lbl">SHORT</span>
+                            <span class="pct">50%</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="recommendation-badge" class="badge">AGUARDANDO</div>
+            </div>
+
+            <!-- Settings Card -->
+            <div class="card glass shadow config-card">
+                <h3>Configurações</h3>
+                <div class="interval-toggle">
+                    <button class="interval-btn" data-min="15">15 Minutos</button>
+                    <button class="interval-btn" data-min="5">5 Minutos</button>
+                </div>
+                <div class="input-row" style="display: flex; flex-direction: column; gap: 0.8rem; margin-top: 1rem;">
+                    <input type="text" id="event-input" placeholder="ID do Evento / Slug">
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="auto-detect-btn" class="btn secondary" style="flex: 1; padding: 0.6rem; border-radius: 8px; background: rgba(39, 166, 154, 0.1); color: var(--accent); border: 1px solid var(--accent); font-weight: bold; cursor: pointer;">AUTO</button>
+                        <button id="apply-config" class="btn premium" style="flex: 2; margin-top: 0; padding: 0.6rem;">Aplicar</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Chart row -->
+        <section class="chart-row">
+            <div class="card glass shadow chart-card">
+                <h3>Histórico de Mercado (BTC & MACD Hist)</h3>
+                <div class="chart-inner-container">
+                    <canvas id="market-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Indicators row -->
+        <section class="indicators-row">
+            <div class="indicators-grid">
+                <div class="card glass indicator">
+                    <label>RSI</label>
+                    <span id="rsi-val" class="val">--.-</span>
+                    <div id="rsi-tendency" class="tendency">--</div>
+                    <span id="rsi-slope" class="sub">--</span>
+                </div>
+                <div class="card glass indicator">
+                    <label>MACD</label>
+                    <span id="macd-val" class="val">--</span>
+                </div>
+                <div class="card glass indicator">
+                    <label>VWAP</label>
+                    <span id="vwap-val" class="val">--</span>
+                    <div id="vwap-tendency" class="tendency">--</div>
+                    <span id="vwap-dist" class="sub">--%</span>
+                </div>
+                <div class="card glass indicator">
+                    <label>Heiken Ashi</label>
+                    <span id="heiken-val" class="val">--</span>
+                </div>
+            </div>
+            
+            <div class="card glass poly-prices">
+                <h3>Preços Polymarket</h3>
+                <div class="poly-grid">
+                    <div class="outcome up">
+                        <label>UP (SIM)</label>
+                        <span id="up-outcome-price" class="price">--¢</span>
+                    </div>
+                    <div class="outcome down">
+                        <label>DOWN (NÃO)</label>
+                        <span id="down-outcome-price" class="price">--¢</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Dados atualizados em tempo real • <span id="last-update">--:--:--</span></p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
