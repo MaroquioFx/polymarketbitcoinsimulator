@@ -396,6 +396,7 @@ input[type="text"]::placeholder { color: var(--text-muted); }
   display: grid;
   grid-template-columns: 1fr 240px;
   gap: 1rem;
+  align-items: start;
 }
 
 /* Indicators grid */
@@ -404,11 +405,14 @@ input[type="text"]::placeholder { color: var(--text-muted); }
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: auto auto;
   gap: 1rem;
+  align-items: start;
 }
 
 /* Confluence card spans 2 cols */
 .confluence-card {
   grid-column: 1 / -1;
+  height: auto !important;
+  max-height: none !important;
 }
 
 .ind-card {
@@ -417,6 +421,10 @@ input[type="text"]::placeholder { color: var(--text-muted); }
   gap: 0.3rem;
   border-left: 3px solid var(--border);
   transition: border-left-color 0.3s;
+  /* Altura fixa para evitar expansão excessiva */
+  height: 110px;
+  max-height: 110px;
+  overflow: hidden;
 }
 .ind-card[data-signal="buy"]     { border-left-color: var(--up); }
 .ind-card[data-signal="sell"]    { border-left-color: var(--down); }
@@ -455,7 +463,7 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 .tendency.neutral { background: rgba(107,114,128,0.15); color: var(--text-muted); }
 
 /* Sparklines */
-.sparkline { width: 100%; height: 20px; margin-top: 0.2rem; }
+.sparkline { width: 100%; height: 18px; margin-top: 0.1rem; flex-shrink: 0; }
 
 /* Confluence */
 .confluence-count { display: flex; align-items: baseline; gap: 0.25rem; }
@@ -478,7 +486,12 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 }
 
 /* Poly odds card */
-.poly-card { display: flex; flex-direction: column; gap: 0.8rem; }
+.poly-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-self: start; /* não estica para cobrir altura dos indicadores */
+}
 
 .poly-outcome { display: flex; flex-direction: column; gap: 0.35rem; }
 .poly-label { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; }
