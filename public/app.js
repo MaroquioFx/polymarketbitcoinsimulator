@@ -93,7 +93,7 @@ function updateUI(data) {
         }
     }
     
-    timeLeftEl.textContent = formatMinutes(data.timeLeft);
+    // timeLeftEl.textContent = formatMinutes(data.timeLeft); // Moved to dashboard-ui.js to avoid flickering
     ptbEl.textContent = formatPrice(data.priceToBeat, 0);
     
     const upPct = (data.prediction.up * 100).toFixed(0);
@@ -166,6 +166,11 @@ function updateUI(data) {
 
     if (data.history && data.history.labels.length > 0) {
         updateChart(data.history);
+    }
+
+    // Bridge data to dashboard-ui.js
+    if (typeof window.updateDashboardExtras === 'function') {
+        window.updateDashboardExtras(data);
     }
 }
 

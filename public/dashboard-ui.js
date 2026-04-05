@@ -95,7 +95,7 @@ const RobotPredictor = (() => {
   function makePrediction(interval) {
     if (predictionMadeThisCycle) return;
     const { direction, confidence, total } = computeDirection();
-    const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
     predictionMadeThisCycle = true;
     predictionData = {
@@ -158,7 +158,7 @@ const RobotPredictor = (() => {
       el.innerHTML = `
         <div class="robot-waiting">
           <span class="robot-wait-icon">⏳</span>
-          <span>Palpite em <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></span>
+          <span>Prediction in <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></span>
         </div>`;
     } else {
       const colorClass = predictionData.direction === 'UP' ? 'robot-pred-up' : 'robot-pred-down';
@@ -166,8 +166,8 @@ const RobotPredictor = (() => {
         <div class="robot-pred-active ${colorClass}">
           <span class="robot-pred-icon">${predictionData.direction === 'UP' ? '↑' : '↓'}</span>
           <div class="robot-pred-info">
-            <span class="robot-pred-label">${predictionData.direction === 'UP' ? 'YES — BTC SOBE' : 'NO — BTC CAI'}</span>
-            <span class="robot-pred-meta">${predictionData.confidence}/${predictionData.total} indicadores · ${predictionData.timeLabel}</span>
+            <span class="robot-pred-label">${predictionData.direction === 'UP' ? 'YES — BTC UP' : 'NO — BTC DOWN'}</span>
+            <span class="robot-pred-meta">${predictionData.confidence}/${predictionData.total} indicators · ${predictionData.timeLabel}</span>
           </div>
         </div>`;
     }
@@ -185,19 +185,19 @@ const RobotPredictor = (() => {
     const rate  = total > 0 ? ((wins / total) * 100).toFixed(0) : '--';
 
     if (badgeEl) {
-      badgeEl.textContent = total > 0 ? `${wins}/${total} · ${rate}%` : 'Sem dados';
+      badgeEl.textContent = total > 0 ? `${wins}/${total} · ${rate}%` : 'No data';
       badgeEl.className = 'robot-accuracy-badge ' +
         (total === 0 ? '' : +rate >= 60 ? 'acc-high' : +rate >= 45 ? 'acc-mid' : 'acc-low');
     }
 
     if (statsEl) {
       statsEl.innerHTML = total > 0
-        ? `<span class="robot-stat-win">✓ ${wins} acertos</span><span class="robot-stat-sep">·</span><span class="robot-stat-loss">✗ ${total - wins} erros</span><span class="robot-stat-rate">${rate}% win rate</span>`
-        : `<span class="robot-stat-empty">Aguardando primeiros palpites…</span>`;
+        ? `<span class="robot-stat-win">✓ ${wins} wins</span><span class="robot-stat-sep">·</span><span class="robot-stat-loss">✗ ${total - wins} losses</span><span class="robot-stat-rate">${rate}% win rate</span>`
+        : `<span class="robot-stat-empty">Awaiting first predictions…</span>`;
     }
 
     if (!history.length) {
-      list.innerHTML = '<li class="robot-empty">Histórico vazio – aguarde o primeiro ciclo completo.</li>';
+      list.innerHTML = '<li class="robot-empty">Empty history – wait for first full cycle.</li>';
       return;
     }
 
@@ -222,8 +222,8 @@ const RobotPredictor = (() => {
     overlay.innerHTML = `
       <div class="pred-alert-icon">${direction === 'UP' ? '↑' : '↓'}</div>
       <div class="pred-alert-text">
-        <strong>Robot: ${direction === 'UP' ? 'YES — BTC SOBE' : 'NO — BTC CAI'}</strong>
-        <span>${confidence}/${total} indicadores alinhados</span>
+        <strong>Robot: ${direction === 'UP' ? 'YES — BTC UP' : 'NO — BTC DOWN'}</strong>
+        <span>${confidence}/${total} indicators aligned</span>
       </div>`;
     document.body.appendChild(overlay);
 
