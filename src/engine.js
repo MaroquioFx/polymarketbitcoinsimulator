@@ -6,6 +6,7 @@ import { startPolymarketChainlinkPriceStream } from "./data/polymarketLiveWs.js"
 import {
   fetchMarketBySlug,
   fetchLiveEventsBySeriesId,
+  fetchMarketsBySeriesSlug,
   flattenEventMarkets,
   pickLatestLiveMarket,
   fetchClobPrice,
@@ -53,7 +54,21 @@ export class AssistantEngine {
     }
     
     // Priority 2: Auto-discovery using the current seriesId
-    const events = await fetchLiveEventsBySeriesId({ seriesId: this.config.polymarket.seriesId, limit: 20 });
+    let events = await fetchLiveEventsBySeriesId({ seriesId: this.config.polymarket.seriesId, limit: 10 });
+    
+    // Fallback: search by seriesSlug if ID returns nothing
+    if (events.length === 0 && this.config.polymarket.seriesSlug) {
+        console.log(`Fallback: Searching for markets with seriesSlug: ${this.config.polymarket.seriesSlug}`);
+        const markets = await fetchMarketsBySeriesSlug({ seriesSlug: this.config.polymarket.seriesSlug, limit: 10 });
+        if (markets.length > 0) {
+            const discovered = pickLatestLiveMarket(markets);
+            if (discovered && this.config.autoDetect) {
+                this.config.polymarket.marketSlug = discovered.slug;
+            }
+            return discovered;
+        }
+    }
+
     const markets = flattenEventMarkets(events);
     
     // Pick the most relevant market for the current timeframe from our known series
@@ -183,8 +198,10 @@ export class AssistantEngine {
         
         // Settlement timing
         const settlementMs = poly.ok && poly.market?.endDate ? new Date(poly.market.endDate).getTime() : null;
-        const settlementLeftMin = settlementMs ? (settlementMs - Date.now()) / 60_000 : null;
-        const timeLeftMin = settlementLeftMin ?? timing.remainingMinutes;
+        const nowMs = Date.now();
+        const settlementLeftSec = settlementMs ? Math.floor((settlementMs - nowMs) / 1000) : null;
+        const timeRemainingSeconds = settlementLeftSec ?? timing.remainingSeconds;
+        const timeLeftMin = timeRemainingSeconds / 60;
 
         // Indicators
         const closes = klines1m.map(c => c.close);
@@ -253,6 +270,8 @@ export class AssistantEngine {
           market: poly.ok ? { ...poly.market, volume: poly.market.volume } : null,
           prices: { up: marketUp, down: marketDown },
           timeLeft: timeLeftMin,
+          timeRemainingSeconds: timeRemainingSeconds,
+          totalTimeSeconds: this.config.candleWindowMinutes * 60,
           indicators: {
             rsi: rsiNow,
             rsiSlope,

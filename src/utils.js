@@ -35,7 +35,8 @@ export function getCandleWindowTiming(windowMinutes) {
     elapsedMs,
     remainingMs,
     elapsedMinutes: elapsedMs / 60_000,
-    remainingMinutes: remainingMs / 60_000
+    remainingMinutes: remainingMs / 60_000,
+    remainingSeconds: Math.floor(remainingMs / 1000)
   };
 }
 

@@ -39,12 +39,12 @@ function formatPrice(val, decimals = 2) {
     return '$' + Number(val).toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
-function formatMinutes(mins) {
-    if (mins === null) return '--:--';
-    const totalSeconds = Math.max(0, Math.floor(mins * 60));
-    const m = Math.floor(totalSeconds / 60);
-    const s = totalSeconds % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+function formatTime(totalSeconds) {
+    if (totalSeconds === null || totalSeconds === undefined) return '--:--';
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
 function connect() {

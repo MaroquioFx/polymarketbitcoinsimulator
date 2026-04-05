@@ -13,7 +13,7 @@ const state = {
     upOdds: 0.58,
     downOdds: 0.41,
     volume: 4339,
-    timeRemaining: 652,
+    timeRemaining: null,  // inicia null, aguarda sincronização do servidor
     timeframe: '15min',
   },
   indicators: {
@@ -27,7 +27,7 @@ const state = {
   signalHistory: [],
   oddsHistory: [],
   lastUpdateTs: Date.now(),
-  totalTimeSeconds: 652,
+  totalTimeSeconds: 15 * 60,  // 15 min padrão
   currentBtcPrice: null,
   currentInterval: 15  // minutos
 };
@@ -149,16 +149,25 @@ const RobotPredictor = (() => {
     if (!el) return;
 
     if (!predictionData) {
+      const s = state.event.timeRemaining;
+      // Se ainda não recebemos o tempo do servidor, mostra aguardando
+      if (s === null) {
+        el.innerHTML = `
+          <div class="robot-waiting">
+            <span class="robot-wait-icon">⏳</span>
+            <span>Aguardando dados do servidor…</span>
+          </div>`;
+        return;
+      }
       const interval = state.currentInterval || 15;
       const halfSecs = (interval * 60) / 2;
-      const s = state.event.timeRemaining;
       const sUntilPred = Math.max(0, s - halfSecs);
       const m = Math.floor(sUntilPred / 60);
       const sec = sUntilPred % 60;
       el.innerHTML = `
         <div class="robot-waiting">
           <span class="robot-wait-icon">⏳</span>
-          <span>Prediction in <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></span>
+          <span>Previsão em <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></span>
         </div>`;
     } else {
       const colorClass = predictionData.direction === 'UP' ? 'robot-pred-up' : 'robot-pred-down';
@@ -234,6 +243,11 @@ const RobotPredictor = (() => {
   // API pública
   return {
     check(timeRemaining, interval, finalPrice) {
+      // Aguarda o servidor antes de disparar qualquer lógica
+      if (timeRemaining === null || timeRemaining === undefined) {
+        renderCurrentPrediction();
+        return;
+      }
       const halfSecs = (interval * 60) / 2;
       // Na metade do tempo: timeRemaining caiu abaixo de halfSecs E ainda não fez palpite
       if (timeRemaining <= halfSecs && timeRemaining > 0) {
@@ -310,25 +324,25 @@ function startCountdown() {
   if (countdownInterval) clearInterval(countdownInterval);
 
   countdownInterval = setInterval(() => {
-    if (state.event.timeRemaining > 0) {
+    // Apenas decrementa se tivermos um valor válido
+    if (state.event.timeRemaining !== null && state.event.timeRemaining > 0) {
       state.event.timeRemaining--;
     }
 
     const s = state.event.timeRemaining;
 
-    // Só atualiza o DOM se o valor mudou
-    if (s !== lastRenderedTime) {
+    if (s !== null && s !== lastRenderedTime) {
       lastRenderedTime = s;
       const m = Math.floor(s / 60);
       const sec = s % 60;
       if (timeEl) timeEl.textContent = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 
       if (ring) {
-        const progress = state.totalTimeSeconds > 0 ? s / state.totalTimeSeconds : 0;
+        const total = state.totalTimeSeconds || (state.currentInterval * 60);
+        const progress = total > 0 ? s / total : 0;
         const offset = circumference * (1 - progress);
         ring.style.strokeDashoffset = offset.toFixed(2);
 
-        // Atualiza classe de cor apenas quando muda de faixa
         const shouldBeDanger = s < 30;
         const shouldBeWarn   = s < 120 && s >= 30;
         const hasDanger = ring.classList.contains('danger');
@@ -566,7 +580,14 @@ function animateValue(el, newText) {
 window.updateDashboardExtras = function(data) {
   state.lastUpdateTs = Date.now();
 
-  if (data.interval) state.currentInterval = data.interval;
+  if (data.interval) {
+    // Se o intervalo mudou, reseta o timer para re-sincronizar com o servidor
+    if (data.interval !== state.currentInterval) {
+      state.event.timeRemaining = null;
+      state.totalTimeSeconds = data.interval * 60;
+    }
+    state.currentInterval = data.interval;
+  }
 
   if (data.prediction) {
     state.forecast.long  = Math.round(data.prediction.up   * 100);
@@ -596,10 +617,15 @@ window.updateDashboardExtras = function(data) {
   }
   if (data.btcPrice) state.currentBtcPrice = data.btcPrice;
 
-  if (data.event?.timeRemaining !== undefined) {
-    // Sincroniza o timer com o servidor silenciosamente (sem resetar o interval)
-    state.event.timeRemaining = data.event.timeRemaining;
-    state.totalTimeSeconds    = data.event.totalTime || state.totalTimeSeconds;
+  if (data.timeRemainingSeconds !== undefined) {
+    const serverTime = data.timeRemainingSeconds;
+    // Sincronização Suave: só ajusta se a diferença for maior que 2 segundos
+    // para evitar que o relógio fique pulando devido a latência de rede.
+    const localTime = state.event.timeRemaining;
+    if (localTime === null || Math.abs(serverTime - localTime) > 2) {
+      state.event.timeRemaining = serverTime;
+    }
+    state.totalTimeSeconds = data.totalTimeSeconds || state.totalTimeSeconds;
   }
 
   renderAllUI();
