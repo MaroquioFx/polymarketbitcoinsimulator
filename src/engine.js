@@ -53,6 +53,19 @@ export class AssistantEngine {
       return await fetchMarketBySlug(this.config.polymarket.marketSlug);
     }
     
+    // Priority 1.5: Auto-discover Fast Cache (se já identificou um slug válido, reusa enquanto estiver ativo)
+    if (this.config.autoDetect && this.config.polymarket.marketSlug) {
+      const cachedMarket = await fetchMarketBySlug(this.config.polymarket.marketSlug).catch(() => null);
+      if (cachedMarket && cachedMarket.endDate) {
+        const endMs = new Date(cachedMarket.endDate).getTime();
+        if (Date.now() < endMs) { // Se o mercado ainda não acabou, não pesquisa a série inteira (muito mais rápido)
+          return cachedMarket;
+        }
+      }
+    }
+    
+    console.log("Searching for new live market ID (Auto Detect)...");
+
     // Priority 2: Auto-discovery using the current seriesId
     let events = await fetchLiveEventsBySeriesId({ seriesId: this.config.polymarket.seriesId, limit: 10 });
     
