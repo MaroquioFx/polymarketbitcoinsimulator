@@ -327,14 +327,17 @@ function startCountdown() {
     // Apenas decrementa se tivermos um valor válido
     if (state.event.timeRemaining !== null && state.event.timeRemaining > 0) {
       state.event.timeRemaining--;
+    } else if (state.event.timeRemaining !== null && state.event.timeRemaining <= 0) {
+      state.event.timeRemaining = 0;
     }
 
     const s = state.event.timeRemaining;
 
     if (s !== null && s !== lastRenderedTime) {
       lastRenderedTime = s;
-      const m = Math.floor(s / 60);
-      const sec = s % 60;
+      const displayS = Math.max(0, s);
+      const m = Math.floor(displayS / 60);
+      const sec = displayS % 60;
       if (timeEl) timeEl.textContent = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 
       if (ring) {

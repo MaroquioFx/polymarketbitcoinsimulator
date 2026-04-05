@@ -91,6 +91,13 @@ function updateUI(data) {
         if (data.autoDetect && eventId !== '--') {
             eventInput.value = eventId;
         }
+    } else if (data.autoDetect) {
+        marketTitleEl.textContent = 'Searching Market...';
+        activeEventIdEl.textContent = 'Searching...';
+        volumeEl.textContent = '$--';
+        if (volumeDetailEl) volumeDetailEl.textContent = '$--';
+        if (miniVolumeEl) miniVolumeEl.textContent = '$--';
+        eventInput.value = '';
     }
     
     // timeLeftEl.textContent = formatMinutes(data.timeLeft); // Moved to dashboard-ui.js to avoid flickering

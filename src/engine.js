@@ -135,10 +135,10 @@ export class AssistantEngine {
     // Atualiza o estado imediatamente para evitar desvio no front
     this.state.interval = minutes;
 
-    // NOTE: autoDetect is NOT forced here — user's manual mode is preserved.
-    // If user is in AUTO mode, it remains AUTO. If manual, it stays manual.
-
     if (prev !== minutes) {
+      // Força Auto Detect e limpa slug salvo ao trocar para que recarregue da nova seriesId
+      this.config.autoDetect = true;
+      this.config.polymarket.marketSlug = null;
       this.history = { labels: [], prices: [], macdHist: [], rsi: [] };
       this.priceToBeatState = { slug: null, value: null, setAtMs: null };
     }
