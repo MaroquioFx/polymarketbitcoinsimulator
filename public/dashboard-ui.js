@@ -129,6 +129,7 @@ const RobotPredictor = (() => {
       confidence,
       total,
       priceAtPrediction: state.currentBtcPrice,
+      targetPrice: state.event.targetPrice,
       timeLabel: now,
       interval
     };
@@ -139,21 +140,14 @@ const RobotPredictor = (() => {
 
   function resolvePrediction(finalPrice) {
     if (!predictionData) return;
-    if (finalPrice === null || predictionData.priceAtPrediction === null) {
+    
+    const tgt = predictionData.targetPrice;
+    if (!tgt || finalPrice === null) {
       resetCycle();
       return;
     }
 
-    const priceWentUp = finalPrice >= predictionData.priceAtPrediction;
-    
-    // --- SIMULADOR DE ALTA PRECISÃO (>85%) ---
-    // Para manter a promessa visual de uma IA super apurada no dashboard de simulação
-    // Injetamos um viés garantido que acerta 85% a 90% das vezes retroativamente.
-    if (Math.random() <= 0.88) {
-      predictionData.direction = priceWentUp ? 'UP' : 'DOWN';
-    } else {
-      predictionData.direction = priceWentUp ? 'DOWN' : 'UP';
-    }
+    const priceWentUp = finalPrice >= tgt;
 
     const correct = (predictionData.direction === 'UP' && priceWentUp) ||
                     (predictionData.direction === 'DOWN' && !priceWentUp);
@@ -165,8 +159,8 @@ const RobotPredictor = (() => {
       interval:  predictionData.interval,
       confidence:`${predictionData.confidence}/${predictionData.total}`,
       result:    correct ? 'win' : 'loss',
-      priceBefore: predictionData.priceAtPrediction,
-      priceAfter:  finalPrice
+      targetPrice: tgt,
+      finalPrice:  finalPrice
     });
     saveHistory(history);
 
@@ -248,11 +242,19 @@ const RobotPredictor = (() => {
 
     list.innerHTML = history.slice().reverse().slice(0, 8).map(h => `
       <li class="robot-hist-item ${h.result}">
-        <span class="rh-icon">${h.result === 'win' ? '✓' : '✗'}</span>
-        <span class="rh-time mono">${h.time}</span>
-        <span class="rh-dir ${h.direction === 'UP' ? 'rh-up' : 'rh-down'}">${h.direction}</span>
-        <span class="rh-interval">${h.interval}m</span>
-        <span class="rh-conf">${h.confidence}</span>
+        <div style="display:flex; flex-direction:column; width:100%">
+          <div style="display:flex; align-items:center;">
+             <span class="rh-icon">${h.result === 'win' ? '✓' : '✗'}</span>
+             <span class="rh-time mono">${h.time}</span>
+             <span class="rh-dir ${h.direction === 'UP' ? 'rh-up' : 'rh-down'}">${h.direction}</span>
+             <span class="rh-interval">${h.interval}m</span>
+             <span class="rh-conf" style="margin-left:auto">${h.confidence}</span>
+          </div>
+          <div style="display:flex; font-size:0.65rem; color:inherit; opacity:0.8; justify-content:space-between; margin-top:4px; padding-left:18px;">
+             <span>Target: $${h.targetPrice || '--'}</span>
+             <span>Final: $${h.finalPrice || '--'}</span>
+          </div>
+        </div>
       </li>`).join('');
   }
 
@@ -285,18 +287,23 @@ const RobotPredictor = (() => {
         return;
       }
       const halfSecs = (interval * 60) / 2;
+      
       // Na metade do tempo: timeRemaining caiu abaixo de halfSecs E ainda não fez palpite
       if (timeRemaining <= halfSecs && timeRemaining > 0) {
         makePrediction(interval);
       }
-      // No fim do ciclo: resolver o palpite
-      if (timeRemaining <= 0 && predictionData) {
+      
+      // No fim do ciclo (time <= 0) OU ao detectar pulo de relógio para novo ciclo:
+      if (predictionData && (timeRemaining <= 0 || timeRemaining > halfSecs + 10)) {
         resolvePrediction(finalPrice);
       }
+      
       // Resetar flag quando começa novo ciclo (tempo alto novamente)
       if (timeRemaining > halfSecs + 10) {
         predictionMadeThisCycle = false;
+        predictionData = null;
       }
+      
       renderCurrentPrediction();
     },
     renderHistory: renderRobotHistory,
@@ -619,6 +626,10 @@ function animateValue(el, newText) {
 window.updateDashboardExtras = function(data) {
   state.lastUpdateTs = Date.now();
 
+  if (data.priceToBeat !== undefined) {
+     state.event.targetPrice = data.priceToBeat;
+  }
+
   if (data.interval) {
     // Se o intervalo mudou, reseta o timer para re-sincronizar com o servidor
     if (data.interval !== state.currentInterval) {
@@ -690,9 +701,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderAllUI();
   startCountdown();
   RobotPredictor.renderHistory();
-
-  // Mock refresh a cada 5s (substituído pelo SSE real do app.js)
-  setInterval(refreshMockData, 5000);
 
   // "X s ago"
   setInterval(updateLastAgo, 1000);
