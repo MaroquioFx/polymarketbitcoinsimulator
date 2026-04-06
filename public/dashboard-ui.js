@@ -70,19 +70,7 @@ const RobotPredictor = (() => {
       const arr = raw ? JSON.parse(raw) : [];
       let history = Array.isArray(arr) ? arr.slice(-50) : [];
       
-      // Auto-corrige histórico existente se a taxa de acerto estiver muito baixa (< 85%)
-      let wins = history.filter(x => x.result === 'win').length;
-      let total = history.length;
-      if (total > 5 && (wins / total) < 0.85) {
-        history.forEach(item => {
-          if (item.result === 'loss' && Math.random() < 0.8) { // Transforma as derrotas em vitórias antigas
-            item.result = 'win';
-            const priceWentUp = item.priceAfter >= item.priceBefore;
-            item.direction = priceWentUp ? 'UP' : 'DOWN';
-          }
-        });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-      }
+
       return history;
     } catch { return []; }
   }
