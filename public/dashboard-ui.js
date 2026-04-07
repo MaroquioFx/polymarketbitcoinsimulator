@@ -106,10 +106,28 @@ const RobotPredictor = (() => {
     };
   }
 
+  function checkNoTrade(direction) {
+    // Se o robô diz UP, mas Polymarket DOWN odds >= 70% → NO TRADE
+    // Se o robô diz DOWN, mas Polymarket UP odds >= 70% → NO TRADE
+    const upPct   = (state.event.upOdds   || 0) * 100;
+    const downPct = (state.event.downOdds || 0) * 100;
+
+    if (direction === 'UP' && downPct >= 70) {
+      return { noTrade: true, reason: `Polymarket DOWN ${downPct.toFixed(0)}% ≥ 70%` };
+    }
+    if (direction === 'DOWN' && upPct >= 70) {
+      return { noTrade: true, reason: `Polymarket UP ${upPct.toFixed(0)}% ≥ 70%` };
+    }
+    return { noTrade: false };
+  }
+
   function makePrediction(interval) {
     if (predictionMadeThisCycle) return;
     const { direction, confidence, total } = computeDirection();
     const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+    // Verificar conflito com Polymarket Odds
+    const tradeCheck = checkNoTrade(direction);
 
     predictionMadeThisCycle = true;
     predictionData = {
@@ -119,11 +137,17 @@ const RobotPredictor = (() => {
       priceAtPrediction: state.currentBtcPrice,
       targetPrice: state.event.targetPrice,
       timeLabel: now,
-      interval
+      interval,
+      noTrade: tradeCheck.noTrade,
+      noTradeReason: tradeCheck.reason || null
     };
 
     renderCurrentPrediction();
-    showPredictionAlert(direction, confidence, total);
+    if (tradeCheck.noTrade) {
+      showNoTradeAlert(direction, tradeCheck.reason);
+    } else {
+      showPredictionAlert(direction, confidence, total);
+    }
   }
 
   function resolvePrediction(finalPrice) {
@@ -186,6 +210,17 @@ const RobotPredictor = (() => {
         <div class="robot-waiting">
           <span class="robot-wait-icon">⏳</span>
           <span>Previsão em <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></span>
+        </div>`;
+    } else if (predictionData.noTrade) {
+      // Exibe NO TRADE quando há conflito com Polymarket Odds
+      el.innerHTML = `
+        <div class="robot-pred-active robot-pred-notrade">
+          <span class="robot-pred-icon">⚠</span>
+          <div class="robot-pred-info">
+            <span class="robot-pred-label">NO TRADE</span>
+            <span class="robot-pred-meta">Robot: ${predictionData.direction} · ${predictionData.noTradeReason}</span>
+            <span class="robot-pred-meta">${predictionData.confidence}/${predictionData.total} indicators · ${predictionData.timeLabel}</span>
+          </div>
         </div>`;
     } else {
       const colorClass = predictionData.direction === 'UP' ? 'robot-pred-up' : 'robot-pred-down';
@@ -264,6 +299,24 @@ const RobotPredictor = (() => {
 
     // Remove após 6 segundos
     setTimeout(() => overlay.remove(), 6000);
+  }
+
+  function showNoTradeAlert(direction, reason) {
+    const existing = document.getElementById('pred-alert-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pred-alert-overlay';
+    overlay.className = 'pred-alert pred-alert-notrade';
+    overlay.innerHTML = `
+      <div class="pred-alert-icon">⚠</div>
+      <div class="pred-alert-text">
+        <strong>NO TRADE</strong>
+        <span>Robot: ${direction} — ${reason}</span>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    setTimeout(() => overlay.remove(), 8000);
   }
 
   // API pública

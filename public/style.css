@@ -613,6 +613,11 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 .robot-pred-up   { border-left: 3px solid var(--up); }
 .robot-pred-down { border-left: 3px solid var(--down); }
 
+/* NO TRADE state */
+.robot-pred-notrade { border-left: 3px solid var(--warn); background: var(--warn-dim); }
+.robot-pred-notrade .robot-pred-icon  { color: var(--warn); font-size: 1.6rem; }
+.robot-pred-notrade .robot-pred-label  { color: var(--warn); font-size: 1rem; font-weight: 900; letter-spacing: 0.08em; }
+
 /* Stats */
 .robot-stats {
   display: flex;
@@ -677,14 +682,22 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 }
 .pred-alert-up   { background: rgba(0,212,170,0.15); border-color: var(--accent); }
 .pred-alert-down { background: rgba(255,77,109,0.15); border-color: var(--danger); }
+.pred-alert-notrade { background: rgba(245,166,35,0.15); border-color: var(--warn); animation: slide-in-right 0.35s ease forwards, notrade-pulse 1.5s infinite 0.35s; }
 .pred-alert-icon { font-size: 2rem; font-weight: 900; }
 .pred-alert-up   .pred-alert-icon { color: var(--up); }
 .pred-alert-down .pred-alert-icon { color: var(--down); }
+.pred-alert-notrade .pred-alert-icon { color: var(--warn); }
 .pred-alert-text { display: flex; flex-direction: column; gap: 0.1rem; }
 .pred-alert-text strong { font-size: 0.9rem; }
 .pred-alert-up   .pred-alert-text strong { color: var(--up); }
 .pred-alert-down .pred-alert-text strong { color: var(--down); }
+.pred-alert-notrade .pred-alert-text strong { color: var(--warn); font-size: 1rem; letter-spacing: 0.08em; }
 .pred-alert-text span { font-size: 0.72rem; color: var(--text-muted); }
+
+@keyframes notrade-pulse {
+  0%, 100% { box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 0 rgba(245,166,35,0.4); }
+  50%      { box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 8px rgba(245,166,35,0); }
+}
 
 @keyframes slide-in-right {
   from { opacity: 0; transform: translateX(40px); }
