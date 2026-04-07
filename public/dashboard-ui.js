@@ -129,6 +129,9 @@ const RobotPredictor = (() => {
     // Verificar conflito com Polymarket Odds
     const tradeCheck = checkNoTrade(direction);
 
+    // Capturar odds no momento da predição
+    const oddsAtPred = direction === 'UP' ? (state.event.upOdds || 0.5) : (state.event.downOdds || 0.5);
+
     predictionMadeThisCycle = true;
     predictionData = {
       direction,
@@ -138,6 +141,7 @@ const RobotPredictor = (() => {
       targetPrice: state.event.targetPrice,
       timeLabel: now,
       interval,
+      oddsAtPrediction: oddsAtPred,
       noTrade: tradeCheck.noTrade,
       noTradeReason: tradeCheck.reason || null
     };
@@ -172,7 +176,9 @@ const RobotPredictor = (() => {
       confidence:`${predictionData.confidence}/${predictionData.total}`,
       result:    correct ? 'win' : 'loss',
       targetPrice: tgt,
-      finalPrice:  finalPrice
+      finalPrice:  finalPrice,
+      oddsAtPrediction: predictionData.oddsAtPrediction,
+      noTrade:   !!predictionData.noTrade
     });
     saveHistory(history);
 
@@ -263,22 +269,39 @@ const RobotPredictor = (() => {
       return;
     }
 
-    list.innerHTML = history.slice().reverse().slice(0, 8).map(h => `
-      <li class="robot-hist-item ${h.result}">
+    list.innerHTML = history.slice().reverse().slice(0, 8).map(h => {
+      let profitStr = '$0.00';
+      let profitClass = '';
+
+      if (!h.noTrade && h.oddsAtPrediction > 0) {
+        if (h.result === 'win') {
+          const profit = (1.0 / h.oddsAtPrediction) - 1.0;
+          profitStr = '+$' + profit.toFixed(2);
+          profitClass = 'rh-profit-up';
+        } else {
+          profitStr = '-$1.00';
+          profitClass = 'rh-profit-down';
+        }
+      }
+
+      return `
+      <li class="robot-hist-item ${h.result} ${h.noTrade ? 'notrade' : ''}">
         <div style="display:flex; flex-direction:column; width:100%">
           <div style="display:flex; align-items:center;">
-             <span class="rh-icon">${h.result === 'win' ? '✓' : '✗'}</span>
+             <span class="rh-icon">${h.noTrade ? '⚠' : (h.result === 'win' ? '✓' : '✗')}</span>
              <span class="rh-time mono">${h.time}</span>
-             <span class="rh-dir ${h.direction === 'UP' ? 'rh-up' : 'rh-down'}">${h.direction}</span>
+             <span class="rh-dir ${h.direction === 'UP' ? 'rh-up' : 'rh-down'}">${h.noTrade ? 'NO TRADE' : h.direction}</span>
              <span class="rh-interval">${h.interval}m</span>
-             <span class="rh-conf" style="margin-left:auto">${h.confidence}</span>
+             <span class="rh-profit ${profitClass}" style="margin-left:auto; font-weight:800; font-family:'Space Mono', monospace;">${profitStr}</span>
           </div>
           <div style="display:flex; font-size:0.65rem; color:inherit; opacity:0.8; justify-content:space-between; margin-top:4px; padding-left:18px;">
              <span>Target: $${h.targetPrice || '--'}</span>
              <span>Final: $${h.finalPrice || '--'}</span>
+             <span style="opacity:0.6">Odds: ${(h.oddsAtPrediction * 100).toFixed(0)}¢</span>
           </div>
         </div>
-      </li>`).join('');
+      </li>`;
+    }).join('');
   }
 
   function showPredictionAlert(direction, confidence, total) {

@@ -662,6 +662,8 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 .rh-down     { color: var(--down); font-weight: 700; }
 .rh-interval { color: var(--text-muted); font-size: 0.62rem; background: rgba(255,255,255,0.05); padding: 0 4px; border-radius: 3px; }
 .rh-conf     { color: var(--text-muted); margin-left: auto; }
+.rh-profit-up   { color: var(--up); }
+.rh-profit-down { color: var(--down); }
 
 /* Alerta de palpite (overlay) */
 .pred-alert {
