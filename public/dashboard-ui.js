@@ -107,17 +107,25 @@ const RobotPredictor = (() => {
   }
 
   function checkNoTrade(direction) {
-    // Se o robô diz UP, mas Polymarket DOWN odds >= 70% → NO TRADE
-    // Se o robô diz DOWN, mas Polymarket UP odds >= 70% → NO TRADE
     const upPct   = (state.event.upOdds   || 0) * 100;
     const downPct = (state.event.downOdds || 0) * 100;
 
+    // Regras de Conflito: robô aponta uma direção, Polymarket aponta ≥70% na oposta
     if (direction === 'UP' && downPct >= 70) {
-      return { noTrade: true, reason: `Polymarket DOWN ${downPct.toFixed(0)}% ≥ 70%` };
+      return { noTrade: true, reason: `Conflito · DOWN ${downPct.toFixed(0)}% ≥ 70%` };
     }
     if (direction === 'DOWN' && upPct >= 70) {
-      return { noTrade: true, reason: `Polymarket UP ${upPct.toFixed(0)}% ≥ 70%` };
+      return { noTrade: true, reason: `Conflito · UP ${upPct.toFixed(0)}% ≥ 70%` };
     }
+
+    // Regras de Saturação: robô e Polymarket apontam mesma direção ≥85%
+    if (direction === 'UP' && upPct >= 85) {
+      return { noTrade: true, reason: `Saturado · UP ${upPct.toFixed(0)}% ≥ 85%` };
+    }
+    if (direction === 'DOWN' && downPct >= 85) {
+      return { noTrade: true, reason: `Saturado · DOWN ${downPct.toFixed(0)}% ≥ 85%` };
+    }
+
     return { noTrade: false };
   }
 
