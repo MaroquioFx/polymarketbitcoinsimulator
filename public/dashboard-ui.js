@@ -276,9 +276,35 @@ const RobotPredictor = (() => {
     }
 
     if (statsEl) {
-      statsEl.innerHTML = total > 0
-        ? `<span class="robot-stat-win">✓ ${wins} wins</span><span class="robot-stat-sep">·</span><span class="robot-stat-loss">✗ ${total - wins} losses</span><span class="robot-stat-rate">${rate}% win rate</span>`
-        : `<span class="robot-stat-empty">Awaiting first predictions…</span>`;
+      if (total > 0) {
+        let profit24h = 0;
+        let loss24h = 0;
+        const now = Date.now();
+        const h24 = 24 * 60 * 60 * 1000;
+
+        history.forEach(h => {
+          if (h.timestamp && (now - h.timestamp) <= h24 && !h.noTrade && h.oddsAtPrediction > 0) {
+            if (h.result === 'win') {
+              profit24h += (1.0 / h.oddsAtPrediction) - 1.0;
+            } else {
+              loss24h += 1.0;
+            }
+          }
+        });
+
+        statsEl.innerHTML = `
+          <div style="display:flex; width:100%; justify-content:space-between; margin-bottom: 4px;">
+            <div><span class="robot-stat-win">✓ ${wins} wins</span><span class="robot-stat-sep">·</span><span class="robot-stat-loss">✗ ${total - wins} losses</span></div>
+            <span class="robot-stat-rate">${rate}% win rate</span>
+          </div>
+          <div style="display:flex; width:100%; justify-content:space-between; font-size: 0.7rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px;">
+            <span style="color:var(--text-muted);">24h Profit: <strong style="color:var(--up);">+$${profit24h.toFixed(2)}</strong></span>
+            <span style="color:var(--text-muted);">24h Loss: <strong style="color:var(--down);">-$${loss24h.toFixed(2)}</strong></span>
+          </div>
+        `;
+      } else {
+        statsEl.innerHTML = `<span class="robot-stat-empty">Awaiting first predictions…</span>`;
+      }
     }
 
     if (!history.length) {
