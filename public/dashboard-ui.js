@@ -68,15 +68,19 @@ const RobotPredictor = (() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const arr = raw ? JSON.parse(raw) : [];
-      let history = Array.isArray(arr) ? arr.slice(-50) : [];
+      let history = Array.isArray(arr) ? arr : [];
       
+      // Filtrar predições das últimas 48 horas
+      const now = Date.now();
+      const hours48 = 48 * 60 * 60 * 1000;
+      history = history.filter(h => !h.ts || (now - h.ts) <= hours48);
 
       return history;
     } catch { return []; }
   }
 
   function saveHistory(history) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-50))); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-1000))); } catch {}
   }
 
   function computeDirection() {
@@ -178,6 +182,7 @@ const RobotPredictor = (() => {
 
     const history = loadHistory();
     history.push({
+      ts:        Date.now(),
       time:      predictionData.timeLabel,
       direction: predictionData.direction,
       interval:  predictionData.interval,
@@ -277,7 +282,7 @@ const RobotPredictor = (() => {
       return;
     }
 
-    list.innerHTML = history.slice().reverse().slice(0, 8).map(h => {
+    list.innerHTML = history.slice().reverse().map(h => {
       let profitStr = '$0.00';
       let profitClass = '';
 
