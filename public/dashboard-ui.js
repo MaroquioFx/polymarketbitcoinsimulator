@@ -292,14 +292,28 @@ const RobotPredictor = (() => {
           }
         });
 
+        const netTotal = profit24h - loss24h;
+        const totalClass = netTotal >= 0 ? 'var(--up)' : 'var(--down)';
+        const totalSign = netTotal >= 0 ? '+' : '';
+
         statsEl.innerHTML = `
           <div style="display:flex; width:100%; justify-content:space-between; margin-bottom: 4px;">
             <div><span class="robot-stat-win">✓ ${wins} wins</span><span class="robot-stat-sep">·</span><span class="robot-stat-loss">✗ ${total - wins} losses</span></div>
             <span class="robot-stat-rate">${rate}% win rate</span>
           </div>
-          <div style="display:flex; width:100%; justify-content:space-between; font-size: 0.7rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px;">
-            <span style="color:var(--text-muted);">24h Profit: <strong style="color:var(--up);">+$${profit24h.toFixed(2)}</strong></span>
-            <span style="color:var(--text-muted);">24h Loss: <strong style="color:var(--down);">-$${loss24h.toFixed(2)}</strong></span>
+          <div style="display:flex; flex-direction:column; gap:4px; width:100%; font-size: 0.75rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 6px;">
+            <div style="display:flex; justify-content:space-between;">
+              <span style="color:var(--text-muted);">24h Profit:</span>
+              <strong style="color:var(--up);">+$${profit24h.toFixed(2)}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span style="color:var(--text-muted);">24h Loss:</span>
+              <strong style="color:var(--down);">-$${loss24h.toFixed(2)}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-top: 1px dotted rgba(255,255,255,0.1); padding-top:4px; margin-top:2px;">
+              <span style="color:var(--text-muted); font-weight:bold;">Total PnL:</span>
+              <strong style="color:${totalClass};">${totalSign}$${netTotal.toFixed(2)}</strong>
+            </div>
           </div>
         `;
       } else {
@@ -385,8 +399,14 @@ const RobotPredictor = (() => {
     setTimeout(() => overlay.remove(), 8000);
   }
 
+  function clearHistory() {
+    localStorage.removeItem(STORAGE_KEY);
+    renderRobotHistory();
+  }
+
   // API pública
   return {
+    clearHistory,
     check(timeRemaining, interval, finalPrice) {
       // Aguarda o servidor antes de disparar qualquer lógica
       if (timeRemaining === null || timeRemaining === undefined) {
