@@ -68,12 +68,16 @@ const RobotPredictor = (() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const arr = raw ? JSON.parse(raw) : [];
-      let history = Array.isArray(arr) ? arr : [];
+      let history = Array.isArray(arr) ? arr.slice(-1000) : [];
       
-      // Filtrar predições das últimas 48 horas
       const now = Date.now();
-      const hours48 = 48 * 60 * 60 * 1000;
-      history = history.filter(h => !h.ts || (now - h.ts) <= hours48);
+      const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
+      
+      // Aplicar retrocompatibilidade e filtrar os dados das últimas 48 horas
+      history = history.map(h => {
+        if (!h.timestamp) h.timestamp = now; // Preenche para manter os antigos por mais 48h
+        return h;
+      }).filter(h => (now - h.timestamp) <= FORTY_EIGHT_HOURS_MS);
 
       return history;
     } catch { return []; }
@@ -182,7 +186,6 @@ const RobotPredictor = (() => {
 
     const history = loadHistory();
     history.push({
-      ts:        Date.now(),
       time:      predictionData.timeLabel,
       direction: predictionData.direction,
       interval:  predictionData.interval,
@@ -191,7 +194,8 @@ const RobotPredictor = (() => {
       targetPrice: tgt,
       finalPrice:  finalPrice,
       oddsAtPrediction: predictionData.oddsAtPrediction,
-      noTrade:   !!predictionData.noTrade
+      noTrade:   !!predictionData.noTrade,
+      timestamp: Date.now()
     });
     saveHistory(history);
 

@@ -639,7 +639,7 @@ input[type="text"]::placeholder { color: var(--text-muted); }
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  max-height: 180px;
+  max-height: 350px;
   overflow-y: auto;
 }
 .robot-empty { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
