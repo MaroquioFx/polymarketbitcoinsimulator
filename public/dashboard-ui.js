@@ -62,7 +62,9 @@ const state = {
 const RobotPredictor = (() => {
   const STORAGE_KEY = 'btc_robot_predictions';
   let predictionMadeThisCycle = false;
+  let retryAt5MinDone = false;
   let predictionData = null; // { direction, priceAtPrediction, timeLabel, interval }
+  let lastNoTradeAlertReason = null; // Para evitar spam de alertas
 
   function loadHistory() {
     try {
@@ -206,8 +208,12 @@ const RobotPredictor = (() => {
     return { noTrade: false };
   }
 
-  function makePrediction(interval) {
+  function makePrediction(interval, isRetry = false) {
     if (predictionMadeThisCycle) return;
+    
+    // Se for retry e já tivermos um trade real, ignora
+    if (isRetry && predictionData && !predictionData.noTrade) return;
+
     const { direction, confidence, total, buyCount, sellCount } = computeDirection();
     const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
@@ -217,7 +223,11 @@ const RobotPredictor = (() => {
     // Capturar odds no momento da predição
     const oddsAtPred = direction === 'UP' ? (state.event.upOdds || 0.5) : (state.event.downOdds || 0.5);
 
-    predictionMadeThisCycle = true;
+    // Se for um trade real (não noTrade), travamos o ciclo
+    if (!tradeCheck.noTrade) {
+      predictionMadeThisCycle = true;
+    }
+
     predictionData = {
       direction,
       confidence,
@@ -232,8 +242,13 @@ const RobotPredictor = (() => {
     };
 
     renderCurrentPrediction();
+    
     if (tradeCheck.noTrade) {
-      showNoTradeAlert(direction, tradeCheck.reason);
+      // Só mostra o alerta de No Trade se a razão mudou ou é a primeira predição do ciclo
+      if (lastNoTradeAlertReason !== tradeCheck.reason) {
+        showNoTradeAlert(direction, tradeCheck.reason);
+        lastNoTradeAlertReason = tradeCheck.reason;
+      }
     } else {
       showPredictionAlert(direction, confidence, total);
     }
@@ -275,7 +290,9 @@ const RobotPredictor = (() => {
 
   function resetCycle() {
     predictionMadeThisCycle = false;
+    retryAt5MinDone = false;
     predictionData = null;
+    lastNoTradeAlertReason = null;
   }
 
   function renderCurrentPrediction() {
@@ -289,7 +306,7 @@ const RobotPredictor = (() => {
         el.innerHTML = `
           <div class="robot-waiting">
             <span class="robot-wait-icon">⏳</span>
-            <span>Aguardando dados do servidor…</span>
+            <span>Waiting for server data…</span>
           </div>`;
         return;
       }
@@ -301,7 +318,7 @@ const RobotPredictor = (() => {
       el.innerHTML = `
         <div class="robot-waiting">
           <span class="robot-wait-icon">⏳</span>
-          <span>Previsão em <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></span>
+          <span>Prediction in <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></span>
         </div>`;
     } else if (predictionData.noTrade) {
       // Exibe NO TRADE quando há conflito com Polymarket Odds
@@ -484,9 +501,15 @@ const RobotPredictor = (() => {
       }
       const halfSecs = (interval * 60) / 2;
       
-      // Na metade do tempo: timeRemaining caiu abaixo de halfSecs E ainda não fez palpite
-      if (timeRemaining <= halfSecs && timeRemaining > 0) {
+      // Na metade do tempo: tenta predição (PHASE 1)
+      if (!predictionMadeThisCycle && timeRemaining <= halfSecs && timeRemaining > 300) {
         makePrediction(interval);
+      }
+      
+      // Se deu NO TRADE na primeira, tenta novamente aos 5 min (PHASE 2)
+      if (!predictionMadeThisCycle && predictionData && predictionData.noTrade && !retryAt5MinDone && timeRemaining <= 300 && timeRemaining > 0) {
+        retryAt5MinDone = true;
+        makePrediction(interval, true);
       }
       
       // No fim do ciclo (time <= 0) OU ao detectar pulo de relógio para novo ciclo:
