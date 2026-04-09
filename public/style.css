@@ -654,9 +654,11 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 }
 .robot-hist-item.win  { border-left: 2px solid var(--accent); }
 .robot-hist-item.loss { border-left: 2px solid var(--danger); }
+.robot-hist-item.notrade { border-left: 2px solid var(--warn); }
 .rh-icon { font-weight: 700; min-width: 12px; }
 .robot-hist-item.win  .rh-icon { color: var(--accent); }
 .robot-hist-item.loss .rh-icon { color: var(--danger); }
+.robot-hist-item.notrade .rh-icon { color: var(--warn); }
 .rh-time     { color: var(--text-muted); flex: 1; }
 .rh-up       { color: var(--up); font-weight: 700; }
 .rh-down     { color: var(--down); font-weight: 700; }

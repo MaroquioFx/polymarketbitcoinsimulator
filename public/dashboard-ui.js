@@ -17,7 +17,7 @@ const state = {
     timeframe: '15min',
   },
   indicators: {
-    rsi:       { value: 55.2,  signal: 'BUY',  history: [] },
+    rsi:       { value: 55.2,  signal: 'BUY',  history: [], slope: 0 },
     macd:      { value: -3.2,  signal: 'SELL', history: [] },
     vwap:      { value: 67324, signal: 'BUY',  history: [] },
     heikenAshi:{ value: 'green x3', signal: 'BUY', history: [] }
@@ -96,29 +96,98 @@ const RobotPredictor = (() => {
     ];
     const buyCount  = signals.filter(s => s === 'BUY').length;
     const sellCount = signals.filter(s => s === 'SELL').length;
-    
+
+    // ═══ FILTRO 4: RSI Counter-Trend Check ═══
+    // Se RSI slope diverge fortemente da maioria, adiciona pressão oposta
+    const rsiSlope = state.indicators.rsi.slope || 0;
+    let adjBuyCount = buyCount;
+    let adjSellCount = sellCount;
+
+    if (buyCount > sellCount && rsiSlope < -1) {
+      adjSellCount += 1; // RSI caindo → pressão bearish contra sinal UP
+    }
+    if (sellCount > buyCount && rsiSlope > 1) {
+      adjBuyCount += 1; // RSI subindo → pressão bullish contra sinal DOWN
+    }
+
     let direction = 'UP';
-    if (buyCount > sellCount) direction = 'UP';
-    else if (sellCount > buyCount) direction = 'DOWN';
+    if (adjBuyCount > adjSellCount) direction = 'UP';
+    else if (adjSellCount > adjBuyCount) direction = 'DOWN';
     else {
-      // Evita apostar apenas em UP em caso de empate
+      // Empate: usa odds do Polymarket como desempate
       if (state.event.upOdds > state.event.downOdds) direction = 'UP';
       else if (state.event.downOdds > state.event.upOdds) direction = 'DOWN';
       else direction = Math.random() > 0.5 ? 'UP' : 'DOWN';
     }
-    
+
     return {
       direction,
-      confidence: Math.max(buyCount, sellCount) || 2, // fake pelo menos 2/4 puramente cosmético
-      total: signals.length
+      confidence: Math.max(buyCount, sellCount) || 2,
+      total: signals.length,
+      buyCount,
+      sellCount
     };
   }
 
-  function checkNoTrade(direction) {
+  // ═══ FILTRO 1: Price Momentum Guard ═══
+  // Bloqueia entrada quando preço recente contradiz a direção prevista
+  function checkMomentum(direction) {
+    const prices = state.priceHistory.slice(-5).map(p => p.price);
+    if (prices.length < 3) return { blocked: false };
+    const delta5 = prices[prices.length - 1] - prices[0];
+
+    if (direction === 'UP' && delta5 < -30) {
+      return { blocked: true, reason: `Momentum ↓ $${Math.abs(delta5).toFixed(0)} (5min)` };
+    }
+    if (direction === 'DOWN' && delta5 > 30) {
+      return { blocked: true, reason: `Momentum ↑ +$${delta5.toFixed(0)} (5min)` };
+    }
+    return { blocked: false };
+  }
+
+  // ═══ FILTRO 3: Consecutive Loss Cooldown ═══
+  // Após 2 losses seguidos na mesma direção, pausa essa direção
+  function checkConsecutiveLosses(direction) {
+    const history = loadHistory();
+    const tradedHistory = history.filter(h => !h.noTrade);
+    const recent = tradedHistory.slice(-2);
+    if (recent.length >= 2 &&
+        recent.every(h => h.result === 'loss' && h.direction === direction)) {
+      return { blocked: true, reason: `Cooldown · 2× ${direction} loss streak` };
+    }
+    return { blocked: false };
+  }
+
+  // ═══ checkNoTrade — Enhanced com 5 filtros anti-loss ═══
+  function checkNoTrade(direction, buyCount, sellCount) {
     const upPct   = (state.event.upOdds   || 0) * 100;
     const downPct = (state.event.downOdds || 0) * 100;
+    const aligned = Math.max(buyCount || 0, sellCount || 0);
 
-    // Regras de Conflito: robô aponta uma direção, Polymarket aponta ≥70% na oposta
+    // ═══ FILTRO 5: Alinhamento Mínimo 3/4 ═══
+    if (aligned < 3) {
+      return { noTrade: true, reason: `Weak · ${buyCount || 0}B/${sellCount || 0}S alignment` };
+    }
+
+    // ═══ FILTRO 2: Odds Mínimas para Entrada ═══
+    const dirOdds = direction === 'UP' ? (state.event.upOdds || 0) : (state.event.downOdds || 0);
+    if (dirOdds < 0.55 && aligned < 4) {
+      return { noTrade: true, reason: `Low odds · ${(dirOdds * 100).toFixed(0)}¢ < 55¢ (need 4/4)` };
+    }
+
+    // ═══ FILTRO 1: Price Momentum Guard ═══
+    const momentum = checkMomentum(direction);
+    if (momentum.blocked) {
+      return { noTrade: true, reason: momentum.reason };
+    }
+
+    // ═══ FILTRO 3: Consecutive Loss Cooldown ═══
+    const cooldown = checkConsecutiveLosses(direction);
+    if (cooldown.blocked) {
+      return { noTrade: true, reason: cooldown.reason };
+    }
+
+    // ═══ ORIGINAL: Conflito ≥ 70% ═══
     if (direction === 'UP' && downPct >= 70) {
       return { noTrade: true, reason: `Conflict · DOWN ${downPct.toFixed(0)}% ≥ 70%` };
     }
@@ -126,7 +195,7 @@ const RobotPredictor = (() => {
       return { noTrade: true, reason: `Conflict · UP ${upPct.toFixed(0)}% ≥ 70%` };
     }
 
-    // Regras de Saturação: robô e Polymarket apontam mesma direção ≥85%
+    // ═══ ORIGINAL: Saturação ≥ 85% ═══
     if (direction === 'UP' && upPct >= 85) {
       return { noTrade: true, reason: `Saturated · UP ${upPct.toFixed(0)}% ≥ 85%` };
     }
@@ -139,11 +208,11 @@ const RobotPredictor = (() => {
 
   function makePrediction(interval) {
     if (predictionMadeThisCycle) return;
-    const { direction, confidence, total } = computeDirection();
+    const { direction, confidence, total, buyCount, sellCount } = computeDirection();
     const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-    // Verificar conflito com Polymarket Odds
-    const tradeCheck = checkNoTrade(direction);
+    // Verificar conflito com Polymarket Odds + Anti-Loss Filters
+    const tradeCheck = checkNoTrade(direction, buyCount, sellCount);
 
     // Capturar odds no momento da predição
     const oddsAtPred = direction === 'UP' ? (state.event.upOdds || 0.5) : (state.event.downOdds || 0.5);
@@ -190,7 +259,7 @@ const RobotPredictor = (() => {
       direction: predictionData.direction,
       interval:  predictionData.interval,
       confidence:`${predictionData.confidence}/${predictionData.total}`,
-      result:    correct ? 'win' : 'loss',
+      result:    predictionData.noTrade ? 'notrade' : (correct ? 'win' : 'loss'),
       targetPrice: tgt,
       finalPrice:  finalPrice,
       oddsAtPrediction: predictionData.oddsAtPrediction,
@@ -265,14 +334,17 @@ const RobotPredictor = (() => {
     if (!list) return;
 
     const history = loadHistory();
-    const wins  = history.filter(h => h.result === 'win').length;
-    const total = history.length;
-    const rate  = total > 0 ? ((wins / total) * 100).toFixed(0) : '--';
+    const tradedHistory = history.filter(h => h.result !== 'notrade');
+    const wins   = tradedHistory.filter(h => h.result === 'win').length;
+    const losses = tradedHistory.filter(h => h.result === 'loss').length;
+    const totalTraded = tradedHistory.length;
+    const total  = history.length; // para manter referência se necessário
+    const rate   = totalTraded > 0 ? ((wins / totalTraded) * 100).toFixed(0) : '--';
 
     if (badgeEl) {
-      badgeEl.textContent = total > 0 ? `${wins}/${total} · ${rate}%` : 'No data';
+      badgeEl.textContent = totalTraded > 0 ? `${wins}/${totalTraded} · ${rate}%` : 'No trades';
       badgeEl.className = 'robot-accuracy-badge ' +
-        (total === 0 ? '' : +rate >= 60 ? 'acc-high' : +rate >= 45 ? 'acc-mid' : 'acc-low');
+        (totalTraded === 0 ? '' : +rate >= 60 ? 'acc-high' : +rate >= 45 ? 'acc-mid' : 'acc-low');
     }
 
     if (statsEl) {
@@ -309,7 +381,7 @@ const RobotPredictor = (() => {
 
         statsEl.innerHTML = `
           <div style="display:flex; width:100%; justify-content:space-between; margin-bottom: 4px;">
-            <div><span class="robot-stat-win">✓ ${wins} wins</span><span class="robot-stat-sep">·</span><span class="robot-stat-loss">✗ ${total - wins} losses</span></div>
+            <div><span class="robot-stat-win">✓ ${wins} wins</span><span class="robot-stat-sep">·</span><span class="robot-stat-loss">✗ ${losses} losses</span></div>
             <span class="robot-stat-rate">${rate}% win rate</span>
           </div>
         `;
@@ -327,7 +399,7 @@ const RobotPredictor = (() => {
       let profitStr = '$0.00';
       let profitClass = '';
 
-      if (!h.noTrade && h.oddsAtPrediction > 0) {
+      if (h.result !== 'notrade' && h.oddsAtPrediction > 0) {
         if (h.result === 'win') {
           const profit = (1.0 / h.oddsAtPrediction) - 1.0;
           profitStr = '+$' + profit.toFixed(2);
@@ -339,7 +411,7 @@ const RobotPredictor = (() => {
       }
 
       return `
-      <li class="robot-hist-item ${h.result} ${h.noTrade ? 'notrade' : ''}">
+      <li class="robot-hist-item ${h.result}">
         <div style="display:flex; flex-direction:column; width:100%">
           <div style="display:flex; align-items:center;">
              <span class="rh-icon">${h.noTrade ? '⚠' : (h.result === 'win' ? '✓' : '✗')}</span>
@@ -781,6 +853,9 @@ window.updateDashboardExtras = function(data) {
       state.indicators.rsi.history.push(+rsi.toFixed(1));
       if (state.indicators.rsi.history.length > 12) state.indicators.rsi.history.shift();
     }
+    if (data.indicators.rsiSlope !== undefined) {
+      state.indicators.rsi.slope = data.indicators.rsiSlope;
+    }
     if (data.indicators.macd) {
       const h = data.indicators.macd.hist || 0;
       state.indicators.macd.value  = h;
@@ -788,8 +863,28 @@ window.updateDashboardExtras = function(data) {
       state.indicators.macd.history.push(h);
       if (state.indicators.macd.history.length > 12) state.indicators.macd.history.shift();
     }
+    if (data.indicators.vwap !== undefined) {
+      state.indicators.vwap.value = data.indicators.vwap;
+      state.indicators.vwap.history.push(+data.indicators.vwap.toFixed(0));
+      if (state.indicators.vwap.history.length > 12) state.indicators.vwap.history.shift();
+    }
+    if (data.indicators.vwapDist !== undefined) {
+      state.indicators.vwap.dist = data.indicators.vwapDist;
+      state.indicators.vwap.signal = data.indicators.vwapDist > 0.0001 ? 'BUY' : data.indicators.vwapDist < -0.0001 ? 'SELL' : 'NEUTRAL';
+    }
+    if (data.indicators.heiken) {
+      const hk = data.indicators.heiken;
+      state.indicators.heikenAshi.value = `${hk.color} x${hk.count}`;
+      state.indicators.heikenAshi.signal = hk.color === 'green' ? 'BUY' : hk.color === 'red' ? 'SELL' : 'NEUTRAL';
+      state.indicators.heikenAshi.history.push(hk.color === 'green' ? 1 : 0);
+      if (state.indicators.heikenAshi.history.length > 12) state.indicators.heikenAshi.history.shift();
+    }
   }
-  if (data.btcPrice) state.currentBtcPrice = data.btcPrice;
+  if (data.btcPrice) {
+    state.currentBtcPrice = data.btcPrice;
+    state.priceHistory.push({ price: data.btcPrice });
+    if (state.priceHistory.length > 60) state.priceHistory.shift();
+  }
 
   if (data.timeRemainingSeconds !== undefined) {
     const serverTime = data.timeRemainingSeconds;
