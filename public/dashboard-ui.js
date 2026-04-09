@@ -351,7 +351,7 @@ const RobotPredictor = (() => {
     if (!list) return;
 
     const history = loadHistory();
-    const tradedHistory = history.filter(h => h.result !== 'notrade');
+    const tradedHistory = history.filter(h => !h.noTrade && h.result !== 'notrade');
     const wins   = tradedHistory.filter(h => h.result === 'win').length;
     const losses = tradedHistory.filter(h => h.result === 'loss').length;
     const totalTraded = tradedHistory.length;
@@ -416,12 +416,13 @@ const RobotPredictor = (() => {
       let profitStr = '$0.00';
       let profitClass = '';
 
-      if (h.result !== 'notrade' && h.oddsAtPrediction > 0) {
+      // Só calcula lucro/prejuízo se for um trade real (não noTrade)
+      if (!h.noTrade && h.result !== 'notrade' && h.oddsAtPrediction > 0) {
         if (h.result === 'win') {
           const profit = (1.0 / h.oddsAtPrediction) - 1.0;
           profitStr = '+$' + profit.toFixed(2);
           profitClass = 'rh-profit-up';
-        } else {
+        } else if (h.result === 'loss') {
           profitStr = '-$1.00';
           profitClass = 'rh-profit-down';
         }
