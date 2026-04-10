@@ -365,15 +365,21 @@
           <span class="robot-stat-empty">Awaiting first predictions…</span>
         </div>
 
-        <!-- Histórico de palpites -->
+        <!-- Histórico de palpites — Planilha -->
         <div class="robot-hist-wrap">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.4rem;">
             <div class="dl">Latest Predictions</div>
             <button onclick="RobotPredictor.clearHistory()" class="clear-hist-btn" style="background:transparent; border:1px solid rgba(255,255,255,0.1); color:#ff4d6d; font-size:0.6rem; padding:2px 6px; border-radius:4px; cursor:pointer;" onmouseover="this.style.background='rgba(255,77,109,0.1)'" onmouseout="this.style.background='transparent'">Clear</button>
           </div>
-          <ul id="robot-history-list" class="robot-history">
-            <li class="robot-empty">Empty history – wait for first full cycle.</li>
-          </ul>
+          <div class="rht-scroll">
+            <table id="robot-history-table" class="robot-history-table">
+              <thead><tr>
+                <th>Time</th><th>Entry</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
+                <th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
+              </tr></thead>
+              <tbody><tr><td colspan="10" class="rht-empty">Empty history – wait for first full cycle.</td></tr></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>

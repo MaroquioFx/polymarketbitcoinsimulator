@@ -228,6 +228,14 @@ const RobotPredictor = (() => {
       predictionMadeThisCycle = true;
     }
 
+    // Snapshot dos indicadores no momento da predição
+    const indicatorSnapshot = {
+      rsi:  state.indicators.rsi.signal,
+      macd: state.indicators.macd.signal,
+      vwap: state.indicators.vwap.signal,
+      ha:   state.indicators.heikenAshi.signal
+    };
+
     predictionData = {
       direction,
       confidence,
@@ -238,7 +246,8 @@ const RobotPredictor = (() => {
       interval,
       oddsAtPrediction: oddsAtPred,
       noTrade: tradeCheck.noTrade,
-      noTradeReason: tradeCheck.reason || null
+      noTradeReason: tradeCheck.reason || null,
+      indicators: indicatorSnapshot
     };
 
     renderCurrentPrediction();
@@ -279,6 +288,8 @@ const RobotPredictor = (() => {
       finalPrice:  finalPrice,
       oddsAtPrediction: predictionData.oddsAtPrediction,
       noTrade:   !!predictionData.noTrade,
+      noTradeReason: predictionData.noTradeReason || null,
+      indicators: predictionData.indicators || null,
       timestamp: Date.now()
     });
     saveHistory(history);
@@ -345,17 +356,17 @@ const RobotPredictor = (() => {
   }
 
   function renderRobotHistory() {
-    const list = document.getElementById('robot-history-list');
+    const tableEl = document.getElementById('robot-history-table');
     const statsEl = document.getElementById('robot-stats');
     const badgeEl = document.getElementById('robot-accuracy-badge');
-    if (!list) return;
+    if (!tableEl) return;
 
     const history = loadHistory();
     const tradedHistory = history.filter(h => !h.noTrade && h.result !== 'notrade');
     const wins   = tradedHistory.filter(h => h.result === 'win').length;
     const losses = tradedHistory.filter(h => h.result === 'loss').length;
     const totalTraded = tradedHistory.length;
-    const total  = history.length; // para manter referência se necessário
+    const total  = history.length;
     const rate   = totalTraded > 0 ? ((wins / totalTraded) * 100).toFixed(0) : '--';
 
     if (badgeEl) {
@@ -385,7 +396,6 @@ const RobotPredictor = (() => {
         const totalClass = netTotal >= 0 ? 'var(--up)' : 'var(--down)';
         const totalSign = netTotal >= 0 ? '+' : '';
 
-        // Update new separated PnL card
         const elPnlProfit = document.getElementById('pnl-profit-val');
         const elPnlLoss = document.getElementById('pnl-loss-val');
         const elPnlTotal = document.getElementById('pnl-total-val');
@@ -408,44 +418,64 @@ const RobotPredictor = (() => {
     }
 
     if (!history.length) {
-      list.innerHTML = '<li class="robot-empty">Empty history – wait for first full cycle.</li>';
+      tableEl.innerHTML = `
+        <thead><tr>
+          <th>Time</th><th>Entry</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
+          <th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
+        </tr></thead>
+        <tbody><tr><td colspan="10" class="rht-empty">Empty history – wait for first full cycle.</td></tr></tbody>`;
       return;
     }
 
-    list.innerHTML = history.slice().reverse().map(h => {
-      let profitStr = '$0.00';
-      let profitClass = '';
+    // Helper para renderizar badge de indicador
+    function indBadge(signal) {
+      if (!signal) return '<span class="ind-badge ind-na">--</span>';
+      const isBuy = signal === 'BUY';
+      return `<span class="ind-badge ${isBuy ? 'ind-buy' : 'ind-sell'}">${isBuy ? 'B' : 'S'}</span>`;
+    }
 
-      // Só calcula lucro/prejuízo se for um trade real (não noTrade)
+    const rows = history.slice().reverse().map(h => {
+      let profitStr = '$0.00';
+      let profitClass = 'rht-pnl-zero';
+
       if (!h.noTrade && h.result !== 'notrade' && h.oddsAtPrediction > 0) {
         if (h.result === 'win') {
           const profit = (1.0 / h.oddsAtPrediction) - 1.0;
           profitStr = '+$' + profit.toFixed(2);
-          profitClass = 'rh-profit-up';
+          profitClass = 'rht-pnl-up';
         } else if (h.result === 'loss') {
           profitStr = '-$1.00';
-          profitClass = 'rh-profit-down';
+          profitClass = 'rht-pnl-down';
         }
       }
 
-      return `
-      <li class="robot-hist-item ${h.result}">
-        <div style="display:flex; flex-direction:column; width:100%">
-          <div style="display:flex; align-items:center;">
-             <span class="rh-icon">${h.noTrade ? '⚠' : (h.result === 'win' ? '✓' : '✗')}</span>
-             <span class="rh-time mono">${h.time}</span>
-             <span class="rh-dir ${h.direction === 'UP' ? 'rh-up' : 'rh-down'}">${h.noTrade ? 'NO TRADE' : h.direction}</span>
-             <span class="rh-interval">${h.interval}m</span>
-             <span class="rh-profit ${profitClass}" style="margin-left:auto; font-weight:800; font-family:'Space Mono', monospace;">${profitStr}</span>
-          </div>
-          <div style="display:flex; font-size:0.65rem; color:inherit; opacity:0.8; justify-content:space-between; margin-top:4px; padding-left:18px;">
-             <span>Target: $${h.targetPrice || '--'}</span>
-             <span>Final: $${h.finalPrice || '--'}</span>
-             <span style="opacity:0.6">Odds: ${(h.oddsAtPrediction * 100).toFixed(0)}¢</span>
-          </div>
-        </div>
-      </li>`;
+      const ind = h.indicators || {};
+      const icon = h.noTrade ? '⚠' : (h.result === 'win' ? '✓' : '✗');
+      const iconClass = h.noTrade ? 'rht-ic-nt' : (h.result === 'win' ? 'rht-ic-win' : 'rht-ic-loss');
+      const entryLabel = h.noTrade ? 'NO TRADE' : h.direction;
+      const entryClass = h.noTrade ? 'rht-entry-nt' : (h.direction === 'UP' ? 'rht-entry-up' : 'rht-entry-down');
+      const reason = h.noTrade && h.noTradeReason ? h.noTradeReason : (h.noTrade ? 'Filtered' : '—');
+
+      return `<tr class="rht-row rht-row-${h.result}">
+        <td class="rht-time mono">${h.time}</td>
+        <td><span class="${iconClass}">${icon}</span> <span class="${entryClass}">${entryLabel}</span></td>
+        <td>${indBadge(ind.rsi)}</td>
+        <td>${indBadge(ind.macd)}</td>
+        <td>${indBadge(ind.vwap)}</td>
+        <td>${indBadge(ind.ha)}</td>
+        <td class="rht-reason" title="${reason}">${reason}</td>
+        <td class="mono">$${h.targetPrice ? Number(h.targetPrice).toFixed(0) : '--'}</td>
+        <td class="mono">$${h.finalPrice ? Number(h.finalPrice).toFixed(0) : '--'}</td>
+        <td class="mono ${profitClass}">${profitStr}</td>
+      </tr>`;
     }).join('');
+
+    tableEl.innerHTML = `
+      <thead><tr>
+        <th>Time</th><th>Entry</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
+        <th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>`;
   }
 
   function showPredictionAlert(direction, confidence, total) {

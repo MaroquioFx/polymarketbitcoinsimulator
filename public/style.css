@@ -632,40 +632,94 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 .robot-stat-rate { color: var(--warn); font-weight: 700; margin-left: auto; }
 .robot-stat-empty { color: var(--text-muted); font-style: italic; }
 
-/* Histórico */
+/* Histórico — Spreadsheet Table */
 .robot-hist-wrap { display: flex; flex-direction: column; gap: 0.3rem; }
-.robot-history {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  max-height: 350px;
+.rht-scroll {
+  overflow-x: auto;
   overflow-y: auto;
+  max-height: 400px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
 }
-.robot-empty { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
-.robot-hist-item {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.7rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 5px;
-  background: rgba(255,255,255,0.03);
+.rht-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+.rht-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+.robot-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.68rem;
+  min-width: 580px;
 }
-.robot-hist-item.win  { border-left: 2px solid var(--accent); }
-.robot-hist-item.loss { border-left: 2px solid var(--danger); }
-.robot-hist-item.notrade { border-left: 2px solid var(--warn); }
-.rh-icon { font-weight: 700; min-width: 12px; }
-.robot-hist-item.win  .rh-icon { color: var(--accent); }
-.robot-hist-item.loss .rh-icon { color: var(--danger); }
-.robot-hist-item.notrade .rh-icon { color: var(--warn); }
-.rh-time     { color: var(--text-muted); flex: 1; }
-.rh-up       { color: var(--up); font-weight: 700; }
-.rh-down     { color: var(--down); font-weight: 700; }
-.rh-interval { color: var(--text-muted); font-size: 0.62rem; background: rgba(255,255,255,0.05); padding: 0 4px; border-radius: 3px; }
-.rh-conf     { color: var(--text-muted); margin-left: auto; }
-.rh-profit-up   { color: var(--up); }
-.rh-profit-down { color: var(--down); }
+.robot-history-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.robot-history-table th {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 6px 7px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.robot-history-table td {
+  padding: 5px 7px;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  vertical-align: middle;
+}
+.rht-row:hover { background: rgba(255,255,255,0.04); }
+.rht-row-win   { border-left: 2px solid var(--accent); }
+.rht-row-loss  { border-left: 2px solid var(--danger); }
+.rht-row-notrade { border-left: 2px solid var(--warn); opacity: 0.75; }
+
+/* Time column */
+.rht-time { color: var(--text-muted); font-size: 0.65rem; }
+
+/* Entry icons & text */
+.rht-ic-win  { color: var(--accent); font-weight: 700; }
+.rht-ic-loss { color: var(--danger); font-weight: 700; }
+.rht-ic-nt   { color: var(--warn);   font-weight: 700; }
+.rht-entry-up   { color: var(--up);   font-weight: 700; }
+.rht-entry-down { color: var(--down); font-weight: 700; }
+.rht-entry-nt   { color: var(--warn); font-weight: 700; font-size: 0.62rem; }
+
+/* Indicator badges */
+.ind-badge {
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-align: center;
+  min-width: 18px;
+  letter-spacing: 0.04em;
+}
+.ind-buy  { color: var(--up);   background: rgba(0,212,170,0.12); border: 1px solid rgba(0,212,170,0.25); }
+.ind-sell { color: var(--down); background: rgba(255,77,109,0.12); border: 1px solid rgba(255,77,109,0.25); }
+.ind-na   { color: var(--text-muted); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+
+/* Reason column */
+.rht-reason {
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* PnL cells */
+.rht-pnl-up   { color: var(--up);   font-weight: 800; }
+.rht-pnl-down { color: var(--down); font-weight: 800; }
+.rht-pnl-zero { color: var(--text-muted); font-weight: 600; }
+
+/* Empty state */
+.rht-empty { text-align: center; color: var(--text-muted); font-style: italic; padding: 1.5rem !important; }
 
 /* Alerta de palpite (overlay) */
 .pred-alert {
