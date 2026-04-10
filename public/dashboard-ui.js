@@ -173,8 +173,15 @@ const RobotPredictor = (() => {
 
     // ═══ FILTRO 2: Odds Mínimas para Entrada ═══
     const dirOdds = direction === 'UP' ? (state.event.upOdds || 0) : (state.event.downOdds || 0);
-    if (dirOdds < 0.55 && aligned < 4) {
-      return { noTrade: true, reason: `Low odds · ${(dirOdds * 100).toFixed(0)}¢ < 55¢ (need 4/4)` };
+    
+    // Regra: 3/4 exige Odds >= 70¢
+    if (aligned === 3 && dirOdds < 0.70) {
+      return { noTrade: true, reason: `Low odds · 3/4 needs ≥ 70¢ (curr: ${(dirOdds * 100).toFixed(0)}¢)` };
+    }
+    
+    // Regra Geral: Menos que 4/4 exige pelo menos 55¢
+    if (aligned < 4 && dirOdds < 0.55) {
+      return { noTrade: true, reason: `Low odds · ${aligned}/4 needs ≥ 55¢` };
     }
 
     // ═══ FILTRO 1: Price Momentum Guard ═══
