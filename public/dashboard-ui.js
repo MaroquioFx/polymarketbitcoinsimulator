@@ -245,6 +245,8 @@ const RobotPredictor = (() => {
       timeLabel: now,
       interval,
       oddsAtPrediction: oddsAtPred,
+      upOdds: state.event.upOdds || 0,
+      downOdds: state.event.downOdds || 0,
       noTrade: tradeCheck.noTrade,
       noTradeReason: tradeCheck.reason || null,
       indicators: indicatorSnapshot
@@ -287,6 +289,8 @@ const RobotPredictor = (() => {
       targetPrice: tgt,
       finalPrice:  finalPrice,
       oddsAtPrediction: predictionData.oddsAtPrediction,
+      upOdds:    predictionData.upOdds || 0,
+      downOdds:  predictionData.downOdds || 0,
       noTrade:   !!predictionData.noTrade,
       noTradeReason: predictionData.noTradeReason || null,
       indicators: predictionData.indicators || null,
@@ -420,10 +424,10 @@ const RobotPredictor = (() => {
     if (!history.length) {
       tableEl.innerHTML = `
         <thead><tr>
-          <th>Time</th><th>Entry</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
-          <th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
+          <th>Time</th><th>Entry</th><th>Conf</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
+          <th>Odds</th><th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
         </tr></thead>
-        <tbody><tr><td colspan="10" class="rht-empty">Empty history – wait for first full cycle.</td></tr></tbody>`;
+        <tbody><tr><td colspan="12" class="rht-empty">Empty history – wait for first full cycle.</td></tr></tbody>`;
       return;
     }
 
@@ -456,13 +460,26 @@ const RobotPredictor = (() => {
       const entryClass = h.noTrade ? 'rht-entry-nt' : (h.direction === 'UP' ? 'rht-entry-up' : 'rht-entry-down');
       const reason = h.noTrade && h.noTradeReason ? h.noTradeReason : (h.noTrade ? 'Filtered' : '—');
 
+      // Signal Confluence
+      const conf = h.confidence || '--';
+      const confParts = conf.split('/');
+      const confNum = parseInt(confParts[0]) || 0;
+      const confClass = confNum >= 4 ? 'rht-conf-high' : confNum >= 3 ? 'rht-conf-mid' : 'rht-conf-low';
+
+      // Polymarket Odds
+      const upO = h.upOdds ? (h.upOdds * 100).toFixed(0) : (h.oddsAtPrediction ? (h.oddsAtPrediction * 100).toFixed(0) : '--');
+      const dnO = h.downOdds ? (h.downOdds * 100).toFixed(0) : '--';
+      const oddsStr = h.upOdds ? `${upO}/${dnO}` : `${upO}¢`;
+
       return `<tr class="rht-row rht-row-${h.result}">
         <td class="rht-time mono">${h.time}</td>
         <td><span class="${iconClass}">${icon}</span> <span class="${entryClass}">${entryLabel}</span></td>
+        <td class="mono ${confClass}">${conf}</td>
         <td>${indBadge(ind.rsi)}</td>
         <td>${indBadge(ind.macd)}</td>
         <td>${indBadge(ind.vwap)}</td>
         <td>${indBadge(ind.ha)}</td>
+        <td class="mono rht-odds">${oddsStr}</td>
         <td class="rht-reason" title="${reason}">${reason}</td>
         <td class="mono">$${h.targetPrice ? Number(h.targetPrice).toFixed(0) : '--'}</td>
         <td class="mono">$${h.finalPrice ? Number(h.finalPrice).toFixed(0) : '--'}</td>
@@ -472,8 +489,8 @@ const RobotPredictor = (() => {
 
     tableEl.innerHTML = `
       <thead><tr>
-        <th>Time</th><th>Entry</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
-        <th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
+        <th>Time</th><th>Entry</th><th>Conf</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
+        <th>Odds</th><th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
       </tr></thead>
       <tbody>${rows}</tbody>`;
   }

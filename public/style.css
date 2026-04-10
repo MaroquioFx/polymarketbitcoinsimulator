@@ -718,6 +718,14 @@ input[type="text"]::placeholder { color: var(--text-muted); }
 .rht-pnl-down { color: var(--down); font-weight: 800; }
 .rht-pnl-zero { color: var(--text-muted); font-weight: 600; }
 
+/* Signal Confluence */
+.rht-conf-high { color: var(--up);   font-weight: 800; }
+.rht-conf-mid  { color: var(--warn); font-weight: 700; }
+.rht-conf-low  { color: var(--text-muted); font-weight: 600; }
+
+/* Polymarket Odds */
+.rht-odds { color: var(--text-soft); font-size: 0.62rem; }
+
 /* Empty state */
 .rht-empty { text-align: center; color: var(--text-muted); font-style: italic; padding: 1.5rem !important; }
 
