@@ -230,10 +230,8 @@ const RobotPredictor = (() => {
     // Capturar odds no momento da predição
     const oddsAtPred = direction === 'UP' ? (state.event.upOdds || 0.5) : (state.event.downOdds || 0.5);
 
-    // Se for um trade real (não noTrade), travamos o ciclo
-    if (!tradeCheck.noTrade) {
-      predictionMadeThisCycle = true;
-    }
+    // Travamos o ciclo para esta tentativa (seja trade ou noTrade)
+    predictionMadeThisCycle = true;
 
     // Snapshot dos indicadores no momento da predição
     const indicatorSnapshot = {
@@ -276,12 +274,20 @@ const RobotPredictor = (() => {
     if (!predictionData) return;
     
     const tgt = predictionData.targetPrice;
-    if (!tgt || finalPrice === null) {
+    
+    // Fallback: Se o preço final do evento ainda não chegou no segundo 0, 
+    // usamos o preço atual do BTC como referência para não perder o registro.
+    const effectiveFinalPrice = (finalPrice !== null && finalPrice !== undefined) 
+      ? finalPrice 
+      : state.currentBtcPrice;
+
+    if (!tgt || effectiveFinalPrice === null) {
+      console.warn('[Robot] Resolve failed: Missing target or final price');
       resetCycle();
       return;
     }
 
-    const priceWentUp = finalPrice >= tgt;
+    const priceWentUp = effectiveFinalPrice >= tgt;
 
     const correct = (predictionData.direction === 'UP' && priceWentUp) ||
                     (predictionData.direction === 'DOWN' && !priceWentUp);
@@ -294,7 +300,7 @@ const RobotPredictor = (() => {
       confidence:`${predictionData.confidence}/${predictionData.total}`,
       result:    predictionData.noTrade ? 'notrade' : (correct ? 'win' : 'loss'),
       targetPrice: tgt,
-      finalPrice:  finalPrice,
+      finalPrice:  effectiveFinalPrice,
       oddsAtPrediction: predictionData.oddsAtPrediction,
       upOdds:    predictionData.upOdds || 0,
       downOdds:  predictionData.downOdds || 0,
@@ -303,6 +309,8 @@ const RobotPredictor = (() => {
       indicators: predictionData.indicators || null,
       timestamp: Date.now()
     });
+    
+    console.log(`[Robot] Resolved: ${predictionData.direction} | Result: ${predictionData.noTrade ? 'notrade' : (correct ? 'win' : 'loss')}`);
     saveHistory(history);
 
     renderRobotHistory();
@@ -561,9 +569,10 @@ const RobotPredictor = (() => {
         makePrediction(interval);
       }
       
-      // Se deu NO TRADE na primeira, tenta novamente aos 5 min (PHASE 2)
-      if (!predictionMadeThisCycle && predictionData && predictionData.noTrade && !retryAt5MinDone && timeRemaining <= 300 && timeRemaining > 0) {
+      // Se deu NO TRADE na primeira (PHASE 2), tentamos um novo snapshot aos 5 min
+      if (predictionData && predictionData.noTrade && !retryAt5MinDone && timeRemaining <= 300 && timeRemaining > 0) {
         retryAt5MinDone = true;
+        predictionMadeThisCycle = false; // Permite uma nova chamada ao makePrediction
         makePrediction(interval, true);
       }
       
