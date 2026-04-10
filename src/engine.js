@@ -1,4 +1,5 @@
 import { CONFIG } from "./config.js";
+import { computeEmaCross, computeAtr, detectRsiDivergence, calcPriceDistance } from "./indicators/trend.js";
 import { fetchKlines, fetchLastPrice } from "./data/binance.js";
 import { fetchChainlinkBtcUsd } from "./data/chainlink.js";
 import { startChainlinkPriceStream } from "./data/chainlinkWs.js";
@@ -232,6 +233,15 @@ export class AssistantEngine {
         const ha = computeHeikenAshi(klines1m);
         const consec = countConsecutive(ha);
 
+        // ═══ Smart Sniper: Novos indicadores ═══
+        const emaCross = computeEmaCross(closes);
+        const atr = computeAtr(klines1m, 15);
+        const rsiDivergence = detectRsiDivergence(closes, rsiSeries, 10);
+        const priceDistInfo = calcPriceDistance(
+          currentPrice ?? spotPrice,
+          this.priceToBeatState.value
+        );
+
         // Scoring & Decision
         const scored = scoreDirection({
           price: spotPrice,
@@ -292,7 +302,11 @@ export class AssistantEngine {
             vwap: vwapNow,
             vwapDist,
             vwapSlope,
-            heiken: consec
+            heiken: consec,
+            emaCross,
+            atr,
+            rsiDivergence,
+            priceDistance: priceDistInfo
           },
           prediction: {
             up: timeAware.adjustedUp,

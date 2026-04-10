@@ -1,6 +1,6 @@
 /**
  * dashboard-ui.js
- * Versão 2.1 — Robot Prediction + fixes
+ * Versão 2.2 — Smart Sniper Strategy - FIXED SINTAX
  */
 
 /* ════════════════════════════════════════════════
@@ -9,79 +9,65 @@
 const state = {
   event: {
     slug: 'btc-updown-15m',
-    targetPrice: 67345,
-    upOdds: 0.58,
-    downOdds: 0.41,
-    volume: 4339,
-    timeRemaining: null,  // inicia null, aguarda sincronização do servidor
+    targetPrice: 0,
+    upOdds: 0.5,
+    downOdds: 0.5,
+    volume: 0,
+    timeRemaining: null,
     timeframe: '15min',
   },
   indicators: {
-    rsi:       { value: 55.2,  signal: 'BUY',  history: [], slope: 0 },
-    macd:      { value: -3.2,  signal: 'SELL', history: [] },
-    vwap:      { value: 67324, signal: 'BUY',  history: [] },
-    heikenAshi:{ value: 'green x3', signal: 'BUY', history: [] }
+    rsi:       { value: 50,  signal: 'NEUTRAL', history: [], slope: 0 },
+    macd:      { value: 0,   signal: 'NEUTRAL', history: [] },
+    vwap:      { value: 0,   signal: 'NEUTRAL', history: [] },
+    heikenAshi:{ value: 'neutral x0', signal: 'NEUTRAL', history: [] },
+    emaCross:  { trend: 'NEUTRAL', gap: 0 },
+    atr:       null,
+    rsiDivergence: { divergence: 'NONE' },
+    priceDistance: { absDistance: 0 }
   },
   priceHistory: [],
-  forecast: { long: 77, short: 23 },
+  forecast: { long: 50, short: 50 },
   signalHistory: [],
   oddsHistory: [],
   lastUpdateTs: Date.now(),
-  totalTimeSeconds: 15 * 60,  // 15 min padrão
+  totalTimeSeconds: 15 * 60,
   currentBtcPrice: null,
-  currentInterval: 15  // minutos
+  currentInterval: 15
 };
 
 /* ════════════════════════════════════════════════
    HISTÓRICO MOCK INICIAL
    ════════════════════════════════════════════════ */
 (function initMockHistory() {
-  const base = 67200;
+  const base = 67000;
   for (let i = 30; i >= 0; i--) {
-    const price = base + (Math.random() - 0.48) * 400 * (30 - i) / 10;
-    state.priceHistory.push({ price: +price.toFixed(2) });
+    state.priceHistory.push({ price: base + (Math.random() - 0.5) * 200 });
   }
   state.currentBtcPrice = state.priceHistory[state.priceHistory.length - 1].price;
-
-  for (let k = 0; k < 10; k++) {
-    const up = 0.48 + (Math.random() - 0.5) * 0.2;
-    state.oddsHistory.push({ up: +up.toFixed(2), down: +(1 - up).toFixed(2) });
-  }
-
-  for (let j = 0; j < 10; j++) {
-    state.indicators.rsi.history.push(+(48 + Math.random() * 18).toFixed(1));
-    state.indicators.macd.history.push(+((Math.random() - 0.5) * 10).toFixed(2));
-    state.indicators.vwap.history.push(+(67100 + Math.random() * 500).toFixed(0));
-    state.indicators.heikenAshi.history.push(Math.random() > 0.4 ? 1 : 0);
+  for (let k = 0; k < 12; k++) {
+    state.oddsHistory.push({ up: 0.5, down: 0.5 });
   }
 })();
 
 /* ════════════════════════════════════════════════
-   ROBOT PREDICTOR
+   ROBOT PREDICTOR: SMART SNIPER ENGINE
    ════════════════════════════════════════════════ */
 const RobotPredictor = (() => {
   const STORAGE_KEY = 'btc_robot_predictions';
   let predictionMadeThisCycle = false;
-  let retryAt5MinDone = false;
-  let predictionData = null; // { direction, priceAtPrediction, timeLabel, interval }
-  let lastNoTradeAlertReason = null; // Para evitar spam de alertas
+  let retryAt3MinDone = false;
+  let predictionData = null;
+  let lastNoTradeAlertReason = null;
 
   function loadHistory() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       const arr = raw ? JSON.parse(raw) : [];
       let history = Array.isArray(arr) ? arr.slice(-1000) : [];
-      
       const now = Date.now();
       const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
-      
-      // Aplicar retrocompatibilidade e filtrar os dados das últimas 48 horas
-      history = history.map(h => {
-        if (!h.timestamp) h.timestamp = now; // Preenche para manter os antigos por mais 48h
-        return h;
-      }).filter(h => (now - h.timestamp) <= FORTY_EIGHT_HOURS_MS);
-
-      return history;
+      return history.filter(h => (now - (h.timestamp || now)) <= FORTY_EIGHT_HOURS_MS);
     } catch { return []; }
   }
 
@@ -89,230 +75,132 @@ const RobotPredictor = (() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-1000))); } catch {}
   }
 
-  function computeDirection() {
-    const signals = [
-      state.indicators.rsi.signal,
-      state.indicators.macd.signal,
-      state.indicators.vwap.signal,
-      state.indicators.heikenAshi.signal
-    ];
-    const buyCount  = signals.filter(s => s === 'BUY').length;
-    const sellCount = signals.filter(s => s === 'SELL').length;
+  function computeSmartDirection() {
+    let upScore = 0;
+    let downScore = 0;
+    const details = [];
+    const MAX_SCORE = 100;
 
-    // ═══ FILTRO 4: RSI Counter-Trend Check ═══
-    // Se RSI slope diverge fortemente da maioria, adiciona pressão oposta
-    const rsiSlope = state.indicators.rsi.slope || 0;
-    let adjBuyCount = buyCount;
-    let adjSellCount = sellCount;
-
-    if (buyCount > sellCount && rsiSlope < -1) {
-      adjSellCount += 1; // RSI caindo → pressão bearish contra sinal UP
-    }
-    if (sellCount > buyCount && rsiSlope > 1) {
-      adjBuyCount += 1; // RSI subindo → pressão bullish contra sinal DOWN
+    // 1. Odds (40 pts)
+    const upOdds = state.event.upOdds || 0.5;
+    const downOdds = state.event.downOdds || 0.5;
+    if (upOdds > downOdds) {
+      const s = Math.min((upOdds - 0.5) * 100, 40);
+      upScore += s;
+      details.push({ factor: 'Odds', dir: 'UP', pts: +s.toFixed(1), max: 40 });
+    } else if (downOdds > upOdds) {
+      const s = Math.min((downOdds - 0.5) * 100, 40);
+      downScore += s;
+      details.push({ factor: 'Odds', dir: 'DOWN', pts: +s.toFixed(1), max: 40 });
     }
 
-    let direction = 'UP';
-    if (adjBuyCount > adjSellCount) direction = 'UP';
-    else if (adjSellCount > adjBuyCount) direction = 'DOWN';
-    else {
-      // Empate: usa odds do Polymarket como desempate
-      if (state.event.upOdds > state.event.downOdds) direction = 'UP';
-      else if (state.event.downOdds > state.event.upOdds) direction = 'DOWN';
-      else direction = Math.random() > 0.5 ? 'UP' : 'DOWN';
+    // 2. EMA (25 pts)
+    const ema = state.indicators.emaCross || { trend: 'NEUTRAL', gap: 0 };
+    if (ema.trend === 'UP') {
+      const s = Math.min(Math.abs(ema.gap) * 50, 25);
+      upScore += s;
+      details.push({ factor: 'EMA', dir: 'UP', pts: +s.toFixed(1), max: 25 });
+    } else if (ema.trend === 'DOWN') {
+      const s = Math.min(Math.abs(ema.gap) * 50, 25);
+      downScore += s;
+      details.push({ factor: 'EMA', dir: 'DOWN', pts: +s.toFixed(1), max: 25 });
     }
 
-    return {
-      direction,
-      confidence: Math.max(buyCount, sellCount) || 2,
-      total: signals.length,
-      buyCount,
-      sellCount
-    };
+    // 3. MACD (20 pts)
+    const macdVal = state.indicators.macd.value || 0;
+    if (state.indicators.macd.signal === 'BUY') {
+      const s = Math.min(Math.abs(macdVal) * 3, 20);
+      upScore += s;
+      details.push({ factor: 'MACD', dir: 'UP', pts: +s.toFixed(1), max: 20 });
+    } else if (state.indicators.macd.signal === 'SELL') {
+      const s = Math.min(Math.abs(macdVal) * 3, 20);
+      downScore += s;
+      details.push({ factor: 'MACD', dir: 'DOWN', pts: +s.toFixed(1), max: 20 });
+    }
+
+    // 4. RSI (15 pts)
+    const rsiDiv = state.indicators.rsiDivergence || { divergence: 'NONE' };
+    if (rsiDiv.divergence === 'NONE') {
+      if (state.indicators.rsi.signal === 'BUY') { upScore += 15; details.push({ factor: 'RSI', dir: 'UP', pts: 15, max: 15 }); }
+      else if (state.indicators.rsi.signal === 'SELL') { downScore += 15; details.push({ factor: 'RSI', dir: 'DOWN', pts: 15, max: 15 }); }
+    } else if (rsiDiv.divergence === 'BEARISH') {
+      upScore -= 10; downScore += 10; details.push({ factor: 'RSI', dir: 'DIV↓', pts: -10, max: 15 });
+    } else if (rsiDiv.divergence === 'BULLISH') {
+      downScore -= 10; upScore += 10; details.push({ factor: 'RSI', dir: 'DIV↑', pts: -10, max: 15 });
+    }
+
+    upScore = Math.max(0, upScore);
+    downScore = Math.max(0, downScore);
+    const direction = upScore >= downScore ? 'UP' : 'DOWN';
+    const score = Math.max(upScore, downScore);
+
+    return { direction, score: +score.toFixed(1), maxScore: MAX_SCORE, upScore, downScore, details };
   }
 
-  // ═══ FILTRO 1: Price Momentum Guard ═══
-  // Bloqueia entrada quando preço recente contradiz a direção prevista
-  function checkMomentum(direction) {
-    const prices = state.priceHistory.slice(-5).map(p => p.price);
-    if (prices.length < 3) return { blocked: false };
-    const delta5 = prices[prices.length - 1] - prices[0];
+  function checkSmartNoTrade(direction, score, upScore, downScore) {
+    const upOdds = state.event.upOdds || 0.5;
+    const downOdds = state.event.downOdds || 0.5;
+    const dirOdds = direction === 'UP' ? upOdds : downOdds;
 
-    if (direction === 'UP' && delta5 < -30) {
-      return { blocked: true, reason: `Momentum ↓ $${Math.abs(delta5).toFixed(0)} (5min)` };
-    }
-    if (direction === 'DOWN' && delta5 > 30) {
-      return { blocked: true, reason: `Momentum ↑ +$${delta5.toFixed(0)} (5min)` };
-    }
-    return { blocked: false };
-  }
-
-  // ═══ FILTRO 3: Consecutive Loss Cooldown ═══
-  // Após 2 losses seguidos na mesma direção, pausa essa direção
-  function checkConsecutiveLosses(direction) {
-    const history = loadHistory();
-    const tradedHistory = history.filter(h => !h.noTrade);
-    const recent = tradedHistory.slice(-2);
-    if (recent.length >= 2 &&
-        recent.every(h => h.result === 'loss' && h.direction === direction)) {
-      return { blocked: true, reason: `Cooldown · 2× ${direction} loss streak` };
-    }
-    return { blocked: false };
-  }
-
-  // ═══ checkNoTrade — Enhanced com 5 filtros anti-loss ═══
-  function checkNoTrade(direction, buyCount, sellCount) {
-    const upPct   = (state.event.upOdds   || 0) * 100;
-    const downPct = (state.event.downOdds || 0) * 100;
-    const aligned = Math.max(buyCount || 0, sellCount || 0);
-
-    // ═══ FILTRO 5: Alinhamento Mínimo 3/4 ═══
-    if (aligned < 3) {
-      return { noTrade: true, reason: `Weak · ${buyCount || 0}B/${sellCount || 0}S alignment` };
-    }
-
-    // ═══ FILTRO 2: Odds Mínimas para Entrada ═══
-    const dirOdds = direction === 'UP' ? (state.event.upOdds || 0) : (state.event.downOdds || 0);
-    
-    // Regra: 3/4 exige Odds >= 70¢
-    if (aligned === 3 && dirOdds < 0.70) {
-      return { noTrade: true, reason: `Low odds · 3/4 needs ≥ 70¢ (curr: ${(dirOdds * 100).toFixed(0)}¢)` };
-    }
-    
-    // Regra Geral: Menos que 4/4 exige pelo menos 55¢
-    if (aligned < 4 && dirOdds < 0.55) {
-      return { noTrade: true, reason: `Low odds · ${aligned}/4 needs ≥ 55¢` };
-    }
-
-    // ═══ FILTRO 1: Price Momentum Guard ═══
-    const momentum = checkMomentum(direction);
-    if (momentum.blocked) {
-      return { noTrade: true, reason: momentum.reason };
-    }
-
-    // ═══ FILTRO 3: Consecutive Loss Cooldown ═══
-    const cooldown = checkConsecutiveLosses(direction);
-    if (cooldown.blocked) {
-      return { noTrade: true, reason: cooldown.reason };
-    }
-
-    // ═══ ORIGINAL: Conflito ≥ 70% ═══
-    if (direction === 'UP' && downPct >= 70) {
-      return { noTrade: true, reason: `Conflict · DOWN ${downPct.toFixed(0)}% ≥ 70%` };
-    }
-    if (direction === 'DOWN' && upPct >= 70) {
-      return { noTrade: true, reason: `Conflict · UP ${upPct.toFixed(0)}% ≥ 70%` };
-    }
-
-    // ═══ ORIGINAL: Saturação ≥ 85% ═══
-    if (direction === 'UP' && upPct >= 85) {
-      return { noTrade: true, reason: `Saturated · UP ${upPct.toFixed(0)}% ≥ 85%` };
-    }
-    if (direction === 'DOWN' && downPct >= 85) {
-      return { noTrade: true, reason: `Saturated · DOWN ${downPct.toFixed(0)}% ≥ 85%` };
-    }
+    if (score < 55) return { noTrade: true, reason: `Low score · ${score}/100` };
+    if (Math.abs(upScore - downScore) < 15) return { noTrade: true, reason: `Split signal` };
+    if (dirOdds < 0.52) return { noTrade: true, reason: `Market disagrees` };
+    if (state.indicators.atr !== null && state.indicators.atr < 15) return { noTrade: true, reason: `Low volatility` };
+    if (dirOdds >= 0.88) return { noTrade: true, reason: `Saturated odds` };
 
     return { noTrade: false };
   }
 
-  function makePrediction(interval, isRetry = false) {
+  function makePrediction(interval) {
     if (predictionMadeThisCycle) return;
-    
-    // Se for retry e já tivermos um trade real, ignora
-    if (isRetry && predictionData && !predictionData.noTrade) return;
-
-    const { direction, confidence, total, buyCount, sellCount } = computeDirection();
+    const smart = computeSmartDirection();
+    const tradeCheck = checkSmartNoTrade(smart.direction, smart.score, smart.upScore, smart.downScore);
     const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-    // Verificar conflito com Polymarket Odds + Anti-Loss Filters
-    const tradeCheck = checkNoTrade(direction, buyCount, sellCount);
-
-    // Capturar odds no momento da predição
-    const oddsAtPred = direction === 'UP' ? (state.event.upOdds || 0.5) : (state.event.downOdds || 0.5);
-
-    // Travamos o ciclo para esta tentativa (seja trade ou noTrade)
     predictionMadeThisCycle = true;
-
-    // Snapshot dos indicadores no momento da predição
-    const indicatorSnapshot = {
-      rsi:  state.indicators.rsi.signal,
-      macd: state.indicators.macd.signal,
-      vwap: state.indicators.vwap.signal,
-      ha:   state.indicators.heikenAshi.signal
-    };
-
     predictionData = {
-      direction,
-      confidence,
-      total,
-      priceAtPrediction: state.currentBtcPrice,
-      targetPrice: state.event.targetPrice,
+      ...smart,
       timeLabel: now,
       interval,
-      oddsAtPrediction: oddsAtPred,
-      upOdds: state.event.upOdds || 0,
-      downOdds: state.event.downOdds || 0,
       noTrade: tradeCheck.noTrade,
-      noTradeReason: tradeCheck.reason || null,
-      indicators: indicatorSnapshot
+      noTradeReason: tradeCheck.reason,
+      priceAtPrediction: state.currentBtcPrice,
+      targetPrice: state.event.targetPrice,
+      oddsAtPrediction: smart.direction === 'UP' ? state.event.upOdds : state.event.downOdds,
+      upOdds: state.event.upOdds,
+      downOdds: state.event.downOdds,
+      indicators: {
+        rsi: state.indicators.rsi.signal,
+        macd: state.indicators.macd.signal,
+        ema: state.indicators.emaCross.trend,
+        ha: state.indicators.heikenAshi.signal
+      }
     };
 
     renderCurrentPrediction();
-    
     if (tradeCheck.noTrade) {
-      // Só mostra o alerta de No Trade se a razão mudou ou é a primeira predição do ciclo
-      if (lastNoTradeAlertReason !== tradeCheck.reason) {
-        showNoTradeAlert(direction, tradeCheck.reason);
-        lastNoTradeAlertReason = tradeCheck.reason;
-      }
+      if (lastNoTradeAlertReason !== tradeCheck.reason) showNoTradeAlert(smart.direction, tradeCheck.reason);
+      lastNoTradeAlertReason = tradeCheck.reason;
     } else {
-      showPredictionAlert(direction, confidence, total);
+      showPredictionAlert(smart.direction, smart.score, 100);
     }
   }
 
   function resolvePrediction(finalPrice) {
     if (!predictionData) return;
-    
     const tgt = predictionData.targetPrice;
-    
-    // Fallback: Se o preço final do evento ainda não chegou no segundo 0, 
-    // usamos o preço atual do BTC como referência para não perder o registro.
-    const effectiveFinalPrice = (finalPrice !== null && finalPrice !== undefined) 
-      ? finalPrice 
-      : state.currentBtcPrice;
+    const ep = finalPrice || state.currentBtcPrice;
+    if (!tgt || ep === null) { resetCycle(); return; }
 
-    if (!tgt || effectiveFinalPrice === null) {
-      console.warn('[Robot] Resolve failed: Missing target or final price');
-      resetCycle();
-      return;
-    }
-
-    const priceWentUp = effectiveFinalPrice >= tgt;
-
-    const correct = (predictionData.direction === 'UP' && priceWentUp) ||
-                    (predictionData.direction === 'DOWN' && !priceWentUp);
-
+    const correct = (predictionData.direction === 'UP' && ep >= tgt) || (predictionData.direction === 'DOWN' && ep < tgt);
     const history = loadHistory();
     history.push({
-      time:      predictionData.timeLabel,
-      direction: predictionData.direction,
-      interval:  predictionData.interval,
-      confidence:`${predictionData.confidence}/${predictionData.total}`,
-      result:    predictionData.noTrade ? 'notrade' : (correct ? 'win' : 'loss'),
-      targetPrice: tgt,
-      finalPrice:  effectiveFinalPrice,
-      oddsAtPrediction: predictionData.oddsAtPrediction,
-      upOdds:    predictionData.upOdds || 0,
-      downOdds:  predictionData.downOdds || 0,
-      noTrade:   !!predictionData.noTrade,
-      noTradeReason: predictionData.noTradeReason || null,
-      indicators: predictionData.indicators || null,
+      ...predictionData,
+      result: predictionData.noTrade ? 'notrade' : (correct ? 'win' : 'loss'),
+      finalPrice: ep,
       timestamp: Date.now()
     });
-    
-    console.log(`[Robot] Resolved: ${predictionData.direction} | Result: ${predictionData.noTrade ? 'notrade' : (correct ? 'win' : 'loss')}`);
     saveHistory(history);
-
     renderRobotHistory();
     renderCurrentPrediction();
     resetCycle();
@@ -320,7 +208,7 @@ const RobotPredictor = (() => {
 
   function resetCycle() {
     predictionMadeThisCycle = false;
-    retryAt5MinDone = false;
+    retryAt3MinDone = false;
     predictionData = null;
     lastNoTradeAlertReason = null;
   }
@@ -331,44 +219,24 @@ const RobotPredictor = (() => {
 
     if (!predictionData) {
       const s = state.event.timeRemaining;
-      // Se ainda não recebemos o tempo do servidor, mostra aguardando
       if (s === null) {
-        el.innerHTML = `
-          <div class="robot-waiting">
-            <span class="robot-wait-icon">⏳</span>
-            <span>Waiting for server data…</span>
-          </div>`;
-        return;
+        el.innerHTML = `<div class="robot-waiting">⏳ Waiting for data…</div>`;
+      } else {
+        const sUntil = Math.max(0, s - 300);
+        const m = Math.floor(sUntil / 60), sec = sUntil % 60;
+        el.innerHTML = `<div class="robot-waiting">⏳ Prediction in <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></div>`;
       }
-      const interval = state.currentInterval || 15;
-      const halfSecs = (interval * 60) / 2;
-      const sUntilPred = Math.max(0, s - halfSecs);
-      const m = Math.floor(sUntilPred / 60);
-      const sec = sUntilPred % 60;
-      el.innerHTML = `
-        <div class="robot-waiting">
-          <span class="robot-wait-icon">⏳</span>
-          <span>Prediction in <strong class="mono">${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}</strong></span>
-        </div>`;
-    } else if (predictionData.noTrade) {
-      // Exibe NO TRADE quando há conflito com Polymarket Odds
-      el.innerHTML = `
-        <div class="robot-pred-active robot-pred-notrade">
-          <span class="robot-pred-icon">⚠</span>
-          <div class="robot-pred-info">
-            <span class="robot-pred-label">NO TRADE</span>
-            <span class="robot-pred-meta">Robot: ${predictionData.direction} · ${predictionData.noTradeReason}</span>
-            <span class="robot-pred-meta">${predictionData.confidence}/${predictionData.total} indicators · ${predictionData.timeLabel}</span>
-          </div>
-        </div>`;
     } else {
-      const colorClass = predictionData.direction === 'UP' ? 'robot-pred-up' : 'robot-pred-down';
+      const color = predictionData.noTrade ? 'robot-pred-notrade' : (predictionData.direction === 'UP' ? 'robot-pred-up' : 'robot-pred-down');
+      const icon = predictionData.noTrade ? '⚠' : (predictionData.direction === 'UP' ? '↑' : '↓');
+      const label = predictionData.noTrade ? 'NO TRADE' : (predictionData.direction === 'UP' ? 'YES — BTC UP' : 'NO — BTC DOWN');
       el.innerHTML = `
-        <div class="robot-pred-active ${colorClass}">
-          <span class="robot-pred-icon">${predictionData.direction === 'UP' ? '↑' : '↓'}</span>
+        <div class="robot-pred-active ${color}">
+          <span class="robot-pred-icon">${icon}</span>
           <div class="robot-pred-info">
-            <span class="robot-pred-label">${predictionData.direction === 'UP' ? 'YES — BTC UP' : 'NO — BTC DOWN'}</span>
-            <span class="robot-pred-meta">${predictionData.confidence}/${predictionData.total} indicators · ${predictionData.timeLabel}</span>
+            <span class="robot-pred-label">${label}</span>
+            <span class="robot-pred-meta">${predictionData.noTrade ? predictionData.noTradeReason : 'Smart Sniper Active'}</span>
+            <span class="robot-pred-meta">Score: ${predictionData.score}/100 · ${predictionData.timeLabel}</span>
           </div>
         </div>`;
     }
@@ -376,638 +244,235 @@ const RobotPredictor = (() => {
 
   function renderRobotHistory() {
     const tableEl = document.getElementById('robot-history-table');
-    const statsEl = document.getElementById('robot-stats');
     const badgeEl = document.getElementById('robot-accuracy-badge');
     if (!tableEl) return;
 
     const history = loadHistory();
-    const tradedHistory = history.filter(h => !h.noTrade && h.result !== 'notrade');
-    const wins   = tradedHistory.filter(h => h.result === 'win').length;
-    const losses = tradedHistory.filter(h => h.result === 'loss').length;
-    const totalTraded = tradedHistory.length;
-    const total  = history.length;
-    const rate   = totalTraded > 0 ? ((wins / totalTraded) * 100).toFixed(0) : '--';
+    const traded = history.filter(h => h.result === 'win' || h.result === 'loss');
+    const wins = traded.filter(h => h.result === 'win').length;
+    const rate = traded.length > 0 ? ((wins / traded.length) * 100).toFixed(0) : '--';
 
     if (badgeEl) {
-      badgeEl.textContent = totalTraded > 0 ? `${wins}/${totalTraded} · ${rate}%` : 'No trades';
-      badgeEl.className = 'robot-accuracy-badge ' +
-        (totalTraded === 0 ? '' : +rate >= 60 ? 'acc-high' : +rate >= 45 ? 'acc-mid' : 'acc-low');
-    }
-
-    if (statsEl) {
-      if (total > 0) {
-        let profit24h = 0;
-        let loss24h = 0;
-        const now = Date.now();
-        const h24 = 24 * 60 * 60 * 1000;
-
-        history.forEach(h => {
-          if (h.timestamp && (now - h.timestamp) <= h24 && !h.noTrade && h.oddsAtPrediction > 0) {
-            if (h.result === 'win') {
-              profit24h += (1.0 / h.oddsAtPrediction) - 1.0;
-            } else {
-              loss24h += 1.0;
-            }
-          }
-        });
-
-        const netTotal = profit24h - loss24h;
-        const totalClass = netTotal >= 0 ? 'var(--up)' : 'var(--down)';
-        const totalSign = netTotal >= 0 ? '+' : '';
-
-        const elPnlProfit = document.getElementById('pnl-profit-val');
-        const elPnlLoss = document.getElementById('pnl-loss-val');
-        const elPnlTotal = document.getElementById('pnl-total-val');
-        if (elPnlProfit) elPnlProfit.innerText = '+$' + profit24h.toFixed(2);
-        if (elPnlLoss) elPnlLoss.innerText = '-$' + loss24h.toFixed(2);
-        if (elPnlTotal) {
-          elPnlTotal.innerText = totalSign + '$' + Math.abs(netTotal).toFixed(2);
-          elPnlTotal.style.color = totalClass;
-        }
-
-        statsEl.innerHTML = `
-          <div style="display:flex; width:100%; justify-content:space-between; margin-bottom: 4px;">
-            <div><span class="robot-stat-win">✓ ${wins} wins</span><span class="robot-stat-sep">·</span><span class="robot-stat-loss">✗ ${losses} losses</span></div>
-            <span class="robot-stat-rate">${rate}% win rate</span>
-          </div>
-        `;
-      } else {
-        statsEl.innerHTML = `<span class="robot-stat-empty">Awaiting first predictions…</span>`;
-      }
-    }
-
-    if (!history.length) {
-      tableEl.innerHTML = `
-        <thead><tr>
-          <th>Time</th><th>Entry</th><th>Conf</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
-          <th>Odds</th><th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
-        </tr></thead>
-        <tbody><tr><td colspan="12" class="rht-empty">Empty history – wait for first full cycle.</td></tr></tbody>`;
-      return;
-    }
-
-    // Helper para renderizar badge de indicador
-    function indBadge(signal) {
-      if (!signal) return '<span class="ind-badge ind-na">--</span>';
-      const isBuy = signal === 'BUY';
-      return `<span class="ind-badge ${isBuy ? 'ind-buy' : 'ind-sell'}">${isBuy ? 'B' : 'S'}</span>`;
+      badgeEl.textContent = traded.length > 0 ? `${wins}/${traded.length} · ${rate}%` : 'No trades';
+      badgeEl.className = 'robot-accuracy-badge ' + (traded.length === 0 ? '' : +rate >= 60 ? 'acc-high' : +rate >= 45 ? 'acc-mid' : 'acc-low');
     }
 
     const rows = history.slice().reverse().map(h => {
-      let profitStr = '$0.00';
-      let profitClass = 'rht-pnl-zero';
+      const resClass = h.result === 'win' ? 'rht-pnl-up' : h.result === 'loss' ? 'rht-pnl-down' : 'rht-pnl-zero';
+      const resIcon = h.result === 'win' ? '✓' : h.result === 'loss' ? '✗' : '⚠';
+      const scoreClass = h.score >= 75 ? 'rht-conf-high' : h.score >= 55 ? 'rht-conf-mid' : 'rht-conf-low';
+      const pnl = h.result === 'win' ? `+$${((1/h.oddsAtPrediction)-1).toFixed(2)}` : (h.result === 'loss' ? '-$1.00' : '$0.00');
 
-      if (!h.noTrade && h.result !== 'notrade' && h.oddsAtPrediction > 0) {
-        if (h.result === 'win') {
-          const profit = (1.0 / h.oddsAtPrediction) - 1.0;
-          profitStr = '+$' + profit.toFixed(2);
-          profitClass = 'rht-pnl-up';
-        } else if (h.result === 'loss') {
-          profitStr = '-$1.00';
-          profitClass = 'rht-pnl-down';
-        }
-      }
-
-      const ind = h.indicators || {};
-      const icon = h.noTrade ? '⚠' : (h.result === 'win' ? '✓' : '✗');
-      const iconClass = h.noTrade ? 'rht-ic-nt' : (h.result === 'win' ? 'rht-ic-win' : 'rht-ic-loss');
-      const entryLabel = h.noTrade ? 'NO TRADE' : h.direction;
-      const entryClass = h.noTrade ? 'rht-entry-nt' : (h.direction === 'UP' ? 'rht-entry-up' : 'rht-entry-down');
-      const reason = h.noTrade && h.noTradeReason ? h.noTradeReason : (h.noTrade ? 'Filtered' : '—');
-
-      // Signal Confluence
-      const conf = h.confidence || '--';
-      const confParts = conf.split('/');
-      const confNum = parseInt(confParts[0]) || 0;
-      const confClass = confNum >= 4 ? 'rht-conf-high' : confNum >= 3 ? 'rht-conf-mid' : 'rht-conf-low';
-
-      // Polymarket Odds
-      const upO = h.upOdds ? (h.upOdds * 100).toFixed(0) : (h.oddsAtPrediction ? (h.oddsAtPrediction * 100).toFixed(0) : '--');
-      const dnO = h.downOdds ? (h.downOdds * 100).toFixed(0) : '--';
-      const oddsStr = h.upOdds ? `${upO}/${dnO}` : `${upO}¢`;
-
-      return `<tr class="rht-row rht-row-${h.result}">
-        <td class="rht-time mono">${h.time}</td>
-        <td><span class="${iconClass}">${icon}</span> <span class="${entryClass}">${entryLabel}</span></td>
-        <td class="mono ${confClass}">${conf}</td>
-        <td>${indBadge(ind.rsi)}</td>
-        <td>${indBadge(ind.macd)}</td>
-        <td>${indBadge(ind.vwap)}</td>
-        <td>${indBadge(ind.ha)}</td>
-        <td class="mono rht-odds">${oddsStr}</td>
-        <td class="rht-reason" title="${reason}">${reason}</td>
-        <td class="mono">$${h.targetPrice ? Number(h.targetPrice).toFixed(0) : '--'}</td>
-        <td class="mono">$${h.finalPrice ? Number(h.finalPrice).toFixed(0) : '--'}</td>
-        <td class="mono ${profitClass}">${profitStr}</td>
+      return `<tr class="rht-row">
+        <td class="mono">${h.timeLabel}</td>
+        <td><span class="${h.direction === 'UP' ? 'rht-entry-up' : 'rht-entry-down'}">${h.noTrade ? 'NO TRADE' : h.direction}</span></td>
+        <td class="mono ${scoreClass}">${h.score}</td>
+        <td>${h.indicators.rsi[0]}</td><td>${h.indicators.macd[0]}</td><td>${h.indicators.ema[0]}</td><td>${h.indicators.ha[0]}</td>
+        <td class="mono">${(h.upOdds*100).toFixed(0)}/${(h.downOdds*100).toFixed(0)}</td>
+        <td class="rht-reason">${h.noTradeReason || '—'}</td>
+        <td class="mono">$${h.targetPrice}</td><td class="mono">$${h.finalPrice}</td>
+        <td class="mono ${resClass}">${pnl}</td>
       </tr>`;
     }).join('');
 
-    tableEl.innerHTML = `
-      <thead><tr>
-        <th>Time</th><th>Entry</th><th>Conf</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
-        <th>Odds</th><th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>`;
+    tableEl.querySelector('tbody').innerHTML = rows || '<tr><td colspan="12" class="rht-empty">Awaiting data...</td></tr>';
+    updatePnL(history);
   }
 
-  function showPredictionAlert(direction, confidence, total) {
-    // Cria overlay de alerta temporário
-    const existing = document.getElementById('pred-alert-overlay');
-    if (existing) existing.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'pred-alert-overlay';
-    overlay.className = `pred-alert ${direction === 'UP' ? 'pred-alert-up' : 'pred-alert-down'}`;
-    overlay.innerHTML = `
-      <div class="pred-alert-icon">${direction === 'UP' ? '↑' : '↓'}</div>
-      <div class="pred-alert-text">
-        <strong>Robot: ${direction === 'UP' ? 'YES — BTC UP' : 'NO — BTC DOWN'}</strong>
-        <span>${confidence}/${total} indicators aligned</span>
-      </div>`;
-    document.body.appendChild(overlay);
-
-    // Remove após 6 segundos
-    setTimeout(() => overlay.remove(), 6000);
+  function updatePnL(history) {
+    let p=0, l=0;
+    const h24 = 24*60*60*1000, now = Date.now();
+    history.forEach(h => {
+      if (h.timestamp && (now - h.timestamp) < h24) {
+        if (h.result === 'win') p += (1/h.oddsAtPrediction)-1;
+        else if (h.result === 'loss') l += 1;
+      }
+    });
+    const t = p - l;
+    if (document.getElementById('pnl-profit-val')) document.getElementById('pnl-profit-val').innerText = `+$${p.toFixed(2)}`;
+    if (document.getElementById('pnl-loss-val')) document.getElementById('pnl-loss-val').innerText = `-$${l.toFixed(2)}`;
+    if (document.getElementById('pnl-total-val')) {
+      const el = document.getElementById('pnl-total-val');
+      el.innerText = `${t>=0?'+':''}$${t.toFixed(2)}`;
+      el.style.color = t >= 0 ? 'var(--up)' : 'var(--down)';
+    }
   }
 
-  function showNoTradeAlert(direction, reason) {
-    const existing = document.getElementById('pred-alert-overlay');
-    if (existing) existing.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'pred-alert-overlay';
-    overlay.className = 'pred-alert pred-alert-notrade';
-    overlay.innerHTML = `
-      <div class="pred-alert-icon">⚠</div>
-      <div class="pred-alert-text">
-        <strong>NO TRADE</strong>
-        <span>Robot: ${direction} — ${reason}</span>
-      </div>`;
-    document.body.appendChild(overlay);
-
-    setTimeout(() => overlay.remove(), 8000);
+  function showPredictionAlert(dir, score, max) {
+    const el = document.createElement('div');
+    el.className = `pred-alert ${dir==='UP'?'pred-alert-up':'pred-alert-down'}`;
+    el.innerHTML = `<div class="pred-alert-icon">${dir==='UP'?'↑':'↓'}</div><div class="pred-alert-text"><strong>🎯 Sniper: ${dir}</strong><span>Score: ${score}/${max}</span></div>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 6000);
   }
 
-  function clearHistory() {
-    localStorage.removeItem(STORAGE_KEY);
-    renderRobotHistory();
+  function showNoTradeAlert(dir, reason) {
+    const el = document.createElement('div');
+    el.className = 'pred-alert pred-alert-notrade';
+    el.innerHTML = `<div class="pred-alert-icon">⚠</div><div class="pred-alert-text"><strong>NO TRADE</strong><span>${reason}</span></div>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 8000);
   }
 
-  // API pública
   return {
-    clearHistory,
-    check(timeRemaining, interval, finalPrice) {
-      // Aguarda o servidor antes de disparar qualquer lógica
-      if (timeRemaining === null || timeRemaining === undefined) {
-        renderCurrentPrediction();
-        return;
+    check(tr, inv, fp) {
+      if (tr === null) { renderCurrentPrediction(); return; }
+      if (!predictionMadeThisCycle && tr <= 300 && tr > 120) makePrediction(inv);
+      if (predictionData && predictionData.noTrade && !retryAt3MinDone && tr <= 180 && tr > 0) {
+        retryAt3MinDone = true; predictionMadeThisCycle = false; makePrediction(inv);
       }
-      const halfSecs = (interval * 60) / 2;
-      
-      // Na metade do tempo: tenta predição (PHASE 1)
-      if (!predictionMadeThisCycle && timeRemaining <= halfSecs && timeRemaining > 300) {
-        makePrediction(interval);
-      }
-      
-      // Se deu NO TRADE na primeira (PHASE 2), tentamos um novo snapshot aos 5 min
-      if (predictionData && predictionData.noTrade && !retryAt5MinDone && timeRemaining <= 300 && timeRemaining > 0) {
-        retryAt5MinDone = true;
-        predictionMadeThisCycle = false; // Permite uma nova chamada ao makePrediction
-        makePrediction(interval, true);
-      }
-      
-      // No fim do ciclo (time <= 0) OU ao detectar pulo de relógio para novo ciclo:
-      if (predictionData && (timeRemaining <= 0 || timeRemaining > halfSecs + 10)) {
-        resolvePrediction(finalPrice);
-      }
-      
-      // Resetar flag quando começa novo ciclo (tempo alto novamente)
-      if (timeRemaining > halfSecs + 10) {
-        predictionMadeThisCycle = false;
-        predictionData = null;
-      }
-      
+      if (predictionData && (tr <= 0 || tr > 310)) resolvePrediction(fp);
       renderCurrentPrediction();
     },
     renderHistory: renderRobotHistory,
-    isPending: () => !!predictionData
+    clearHistory: () => { localStorage.removeItem(STORAGE_KEY); renderRobotHistory(); }
   };
 })();
 
 /* ════════════════════════════════════════════════
-   COMPUTAR CONFIANÇA
+   START COUNTDOWN (FIXED)
    ════════════════════════════════════════════════ */
-function computeConfidence() {
-  const signals = Object.values(state.indicators).map(i => i.signal);
-  const buyCount  = signals.filter(s => s === 'BUY').length;
-  const sellCount = signals.filter(s => s === 'SELL').length;
-  const majority  = buyCount >= sellCount ? 'LONG' : 'SHORT';
-  const aligned   = Math.max(buyCount, sellCount);
-  return { aligned, total: signals.length, majority,
-    level: aligned >= 4 ? 'HIGH' : aligned >= 3 ? 'MEDIUM' : 'LOW' };
-}
-
-/* ════════════════════════════════════════════════
-   SPARKLINES SVG
-   ════════════════════════════════════════════════ */
-function renderSparkline(svgId, data, colorFn) {
-  const svg = document.getElementById(svgId);
-  if (!svg || !data.length) return;
-  const W = 60, H = 18;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * W;
-    const y = H - ((v - min) / range) * H;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const color = colorFn ? colorFn(data[data.length - 1]) : '#00d4aa';
-  svg.innerHTML = `
-    <polyline points="${pts.join(' ')}"
-      fill="none" stroke="${color}" stroke-width="1.5"
-      stroke-linecap="round" stroke-linejoin="round"/>`;
-}
-
-function renderAllSparklines() {
-  renderSparkline('spark-rsi',    state.indicators.rsi.history,        v => v > 55 ? '#00d4aa' : v < 45 ? '#ff4d6d' : '#9ca3af');
-  renderSparkline('spark-macd',   state.indicators.macd.history,       v => v >= 0 ? '#00d4aa' : '#ff4d6d');
-  renderSparkline('spark-vwap',   state.indicators.vwap.history,       () => '#00d4aa');
-  renderSparkline('spark-heiken', state.indicators.heikenAshi.history, v => v > 0.5 ? '#00d4aa' : '#ff4d6d');
-}
-
-/* ════════════════════════════════════════════════
-   COUNTDOWN TIMER — Sem pisca-pisca
-   ════════════════════════════════════════════════ */
-let countdownInterval = null;
-let lastRenderedTime  = -1; // evita re-render desnecessário
-
 function startCountdown() {
-  const ring = document.getElementById('countdown-ring');
   const timeEl = document.getElementById('time-left');
-  const circumference = 163.4;
+  const ring = document.getElementById('countdown-ring');
+  const circumference = 2 * Math.PI * 26;
+  if (ring) ring.style.strokeDasharray = `${circumference} ${circumference}`;
 
-  if (countdownInterval) clearInterval(countdownInterval);
-
-  countdownInterval = setInterval(() => {
-    // Apenas decrementa se tivermos um valor válido
+  setInterval(() => {
     if (state.event.timeRemaining !== null && state.event.timeRemaining > 0) {
       state.event.timeRemaining--;
-    } else if (state.event.timeRemaining !== null && state.event.timeRemaining <= 0) {
-      state.event.timeRemaining = 0;
     }
-
     const s = state.event.timeRemaining;
-
-    if (s !== null && s !== lastRenderedTime) {
-      lastRenderedTime = s;
-      const displayS = Math.max(0, s);
-      const m = Math.floor(displayS / 60);
-      const sec = displayS % 60;
+    if (s !== null) {
+      const m = Math.floor(s/60), sec = s%60;
       if (timeEl) timeEl.textContent = `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
-
       if (ring) {
-        const total = state.totalTimeSeconds || (state.currentInterval * 60);
-        const progress = total > 0 ? s / total : 0;
-        const offset = circumference * (1 - progress);
-        ring.style.strokeDashoffset = offset.toFixed(2);
-
-        const shouldBeDanger = s < 30;
-        const shouldBeWarn   = s < 120 && s >= 30;
-        const hasDanger = ring.classList.contains('danger');
-        const hasWarn   = ring.classList.contains('warn');
-
-        if (shouldBeDanger && !hasDanger) { ring.classList.remove('warn');   ring.classList.add('danger'); }
-        else if (shouldBeWarn && !hasWarn){ ring.classList.remove('danger'); ring.classList.add('warn');   }
-        else if (!shouldBeDanger && !shouldBeWarn && (hasDanger || hasWarn)) {
-          ring.classList.remove('danger', 'warn');
-        }
+        const progress = s / (state.totalTimeSeconds || 900);
+        ring.style.strokeDashoffset = circumference * (1 - progress);
+        ring.className = `countdown-fill ${s < 60 ? 'danger' : s < 180 ? 'warn' : ''}`;
       }
     }
-
-    // Verificar palpite do robô
-    RobotPredictor.check(
-      state.event.timeRemaining,
-      state.currentInterval,
-      state.currentBtcPrice
-    );
-
+    RobotPredictor.check(state.event.timeRemaining, state.currentInterval, state.currentBtcPrice);
   }, 1000);
 }
 
 /* ════════════════════════════════════════════════
-   ODDS HISTORY MINI CHART
+   UI HELPERS
    ════════════════════════════════════════════════ */
 let oddsChart = null;
-
 function initOddsChart() {
   const ctx = document.getElementById('odds-chart');
   if (!ctx) return;
   oddsChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: state.oddsHistory.map((_, i) => i + 1),
+      labels: state.oddsHistory.map((_,i) => i),
       datasets: [
-        { label: 'UP',   data: state.oddsHistory.map(o => +(o.up * 100).toFixed(1)),   borderColor: '#00d4aa', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.3 },
-        { label: 'DOWN', data: state.oddsHistory.map(o => +(o.down * 100).toFixed(1)), borderColor: '#ff4d6d', borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0.3 }
+        { label: 'UP', data: state.oddsHistory.map(o => o.up*100), borderColor: '#00d4aa', pointRadius: 0, tension: 0.3 },
+        { label: 'DOWN', data: state.oddsHistory.map(o => o.down*100), borderColor: '#ff4d6d', pointRadius: 0, tension: 0.3 }
       ]
     },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      plugins: { legend: { display: false }, tooltip: { enabled: false } },
-      scales: {
-        x: { display: false },
-        y: { display: false, min: 0, max: 100 }
-      }
-    }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false, min: 0, max: 100 } } }
   });
 }
 
 function updateOddsChart() {
   if (!oddsChart) return;
-  oddsChart.data.datasets[0].data = state.oddsHistory.map(o => +(o.up   * 100).toFixed(1));
-  oddsChart.data.datasets[1].data = state.oddsHistory.map(o => +(o.down * 100).toFixed(1));
+  oddsChart.data.datasets[0].data = state.oddsHistory.map(o => o.up*100);
+  oddsChart.data.datasets[1].data = state.oddsHistory.map(o => o.down*100);
   oddsChart.update('none');
 }
 
-/* ════════════════════════════════════════════════
-   ATUALIZAR CONFLUENCE CARD
-   ════════════════════════════════════════════════ */
 function updateConfluenceCard() {
-  const conf = computeConfidence();
-  const numEl     = document.getElementById('confluence-num');
-  const dirEl     = document.getElementById('confluence-dir');
-  const badgeEl   = document.getElementById('confluence-badge');
-  const bar       = document.getElementById('conf-progress-bar');
-  const confBadge = document.getElementById('confidence-badge');
-  const enterBtn  = document.getElementById('enter-signal-btn');
-  const indConf   = document.getElementById('ind-confluence');
+  const smart = RobotPredictor.check ? { direction: 'UP', score: 0 } : { direction: 'UP', score: 0 }; // Placeholder if called outside
+  // Esta função agora é chamada dentro do renderAllUI com dados frescos
+  const s = RobotPredictor.check ? RobotPredictor.check_internal_score?.() || { score: 0, direction: 'UP' } : {score:0};
 
-  if (numEl) numEl.textContent = conf.aligned;
-  if (dirEl) dirEl.textContent = conf.majority;
-  if (bar)   bar.style.width   = `${(conf.aligned / conf.total) * 100}%`;
+  // Re-calculo simplificado para o card visual
+  const numEl = document.getElementById('confluence-num');
+  const bar = document.getElementById('conf-progress-bar');
+  const badge = document.getElementById('confluence-badge');
 
-  if (badgeEl) {
-    badgeEl.className = `ind-badge badge-${conf.level === 'HIGH' ? 'buy' : conf.level === 'MEDIUM' ? 'buy' : 'neutral'}`;
-    badgeEl.textContent = conf.level;
+  // Para o card visual, vamos pegar o score em tempo real
+  const current = (typeof RobotPredictor.computeSmartDirection === 'function') ? RobotPredictor.computeSmartDirection() : {score: 0};
+  if (numEl) numEl.textContent = current.score || 0;
+  if (bar) {
+    bar.style.width = `${current.score}%`;
+    bar.style.background = current.score >= 75 ? 'var(--up)' : current.score >= 55 ? '#ffca28' : '#ff4d6d';
   }
-  if (confBadge) {
-    confBadge.className = `conf-badge conf-${conf.level.toLowerCase()}`;
-    confBadge.textContent = conf.level;
+  if (badge) {
+    badge.textContent = current.score >= 75 ? 'HIGH' : current.score >= 55 ? 'MEDIUM' : 'LOW';
+    badge.className = `ind-badge badge-${current.score >= 55 ? 'buy' : 'neutral'}`;
   }
-  if (enterBtn) {
-    if (conf.level === 'HIGH') {
-      enterBtn.classList.remove('hidden');
-      enterBtn.classList.add('pulse');
-      enterBtn.textContent = conf.majority === 'LONG' ? 'ENTER ↑ UP' : 'ENTER ↓ DOWN';
-    } else {
-      enterBtn.classList.add('hidden');
-      enterBtn.classList.remove('pulse');
-    }
-  }
-  if (indConf) indConf.dataset.signal = conf.majority === 'LONG' ? 'buy' : 'sell';
 }
 
-/* ════════════════════════════════════════════════
-   RENDERIZAR SIGNAL HISTORY
-   ════════════════════════════════════════════════ */
-function renderSignalHistory() {
-  const list = document.getElementById('signal-history-list');
-  if (!list || !state.signalHistory.length) return;
-  list.innerHTML = state.signalHistory.slice(-5).reverse().map(s => `
-    <li>
-      <span class="${s.result === 'win' ? 'sh-icon-ok' : 'sh-icon-fail'}">${s.result === 'win' ? '✓' : '✗'}</span>
-      <span class="mono" style="font-size:0.65rem">${s.time}</span>
-      <span style="font-weight:700;color:${s.signal === 'LONG' ? 'var(--up)' : 'var(--down)'}">${s.signal}</span>
-    </li>`).join('');
-}
-
-/* ════════════════════════════════════════════════
-   ATUALIZAÇÃO DO "LAST UPDATE AGO"
-   ════════════════════════════════════════════════ */
-function updateLastAgo() {
-  const el = document.getElementById('last-update-ago');
-  if (!el) return;
-  const diff = Math.round((Date.now() - state.lastUpdateTs) / 1000);
-  el.textContent = diff;
-}
-
-/* ════════════════════════════════════════════════
-   MOCK REFRESH (5s)
-   ════════════════════════════════════════════════ */
-function refreshMockData() {
-  const rsiDelta = (Math.random() - 0.49) * 1.5;
-  state.indicators.rsi.value = Math.max(20, Math.min(80, state.indicators.rsi.value + rsiDelta));
-  state.indicators.rsi.history.push(+state.indicators.rsi.value.toFixed(1));
-  if (state.indicators.rsi.history.length > 12) state.indicators.rsi.history.shift();
-
-  const macdDelta = (Math.random() - 0.52) * 0.8;
-  state.indicators.macd.value = +(state.indicators.macd.value + macdDelta).toFixed(2);
-  state.indicators.macd.history.push(state.indicators.macd.value);
-  if (state.indicators.macd.history.length > 12) state.indicators.macd.history.shift();
-
-  const upShift = (Math.random() - 0.5) * 0.03;
-  state.event.upOdds   = Math.max(0.1, Math.min(0.9, state.event.upOdds + upShift));
-  state.event.downOdds = +(1 - state.event.upOdds).toFixed(2);
-  state.oddsHistory.push({ up: +state.event.upOdds.toFixed(2), down: state.event.downOdds });
-  if (state.oddsHistory.length > 12) state.oddsHistory.shift();
-
-  const long = Math.round(state.event.upOdds * 100 + (Math.random() - 0.5) * 6);
-  state.forecast.long  = Math.max(20, Math.min(80, long));
-  state.forecast.short = 100 - state.forecast.long;
-
-  state.indicators.rsi.signal  = state.indicators.rsi.value > 55 ? 'BUY' : state.indicators.rsi.value < 45 ? 'SELL' : 'NEUTRAL';
-  state.indicators.macd.signal = state.indicators.macd.value > 0 ? 'BUY' : 'SELL';
-
-  // Simula variação de preço BTC
-  const priceDelta = (Math.random() - 0.5) * 50;
-  state.currentBtcPrice = (state.currentBtcPrice || 67000) + priceDelta;
-
-  state.lastUpdateTs = Date.now();
-  renderAllUI();
-}
-
-/* ════════════════════════════════════════════════
-   RENDERIZAR TUDO
-   ════════════════════════════════════════════════ */
 function renderAllUI() {
-  // Forecast bar
-  const upBar   = document.getElementById('up-bar');
-  const downBar = document.getElementById('down-bar');
-  if (upBar) {
-    upBar.style.width = state.forecast.long + '%';
-    upBar.querySelector('.pct').textContent = state.forecast.long + '%';
-  }
-  if (downBar) {
-    downBar.style.width = state.forecast.short + '%';
-    downBar.querySelector('.pct').textContent = state.forecast.short + '%';
+  // Update Indicators
+  const map = { 'rsi-val': state.indicators.rsi.value.toFixed(1), 'macd-val': state.indicators.macd.value.toFixed(2), 'vwap-val': state.indicators.vwap.value || '--', 'heiken-val': state.indicators.heikenAshi.value };
+  Object.entries(map).forEach(([id, val]) => { if(document.getElementById(id)) document.getElementById(id).textContent = val; });
+
+  const rsiB = document.querySelector('#ind-rsi .ind-badge');
+  if (rsiB) {
+    rsiB.textContent = state.indicators.rsi.signal;
+    rsiB.className = `ind-badge badge-${state.indicators.rsi.signal.toLowerCase()}`;
   }
 
   // Odds bars
-  const upFill   = document.getElementById('poly-bar-up');
-  const downFill = document.getElementById('poly-bar-down');
-  const upPrice  = document.getElementById('up-outcome-price');
-  const downPrice= document.getElementById('down-outcome-price');
-  if (upFill)   upFill.style.width   = `${(state.event.upOdds   * 100).toFixed(0)}%`;
-  if (downFill) downFill.style.width = `${(state.event.downOdds * 100).toFixed(0)}%`;
-  if (upPrice)  upPrice.textContent  = `${(state.event.upOdds   * 100).toFixed(0)}¢`;
-  if (downPrice)downPrice.textContent= `${(state.event.downOdds * 100).toFixed(0)}¢`;
-
-  // Indicator border colors
-  const sigMap = {
-    'ind-rsi':    state.indicators.rsi.signal.toLowerCase(),
-    'ind-macd':   state.indicators.macd.signal.toLowerCase(),
-    'ind-vwap':   state.indicators.vwap.signal.toLowerCase(),
-    'ind-heiken': state.indicators.heikenAshi.signal.toLowerCase()
-  };
-  Object.entries(sigMap).forEach(([id, sig]) => {
-    const el = document.getElementById(id);
-    if (el) el.dataset.signal = sig === 'buy' ? 'buy' : sig === 'sell' ? 'sell' : 'neutral';
-  });
-
-  // RSI
-  const rsiBadge = document.querySelector('#ind-rsi .ind-badge');
-  if (rsiBadge) {
-    rsiBadge.className = `ind-badge badge-${state.indicators.rsi.signal === 'BUY' ? 'buy' : state.indicators.rsi.signal === 'SELL' ? 'sell' : 'neutral'}`;
-    rsiBadge.textContent = state.indicators.rsi.signal;
-  }
-  const rsiValEl = document.getElementById('rsi-val');
-  if (rsiValEl) animateValue(rsiValEl, state.indicators.rsi.value.toFixed(1));
-
-  // MACD
-  const macdBadge = document.querySelector('#ind-macd .ind-badge');
-  if (macdBadge) {
-    macdBadge.className = `ind-badge badge-${state.indicators.macd.signal === 'BUY' ? 'buy' : 'sell'}`;
-    macdBadge.textContent = state.indicators.macd.signal === 'BUY' ? 'BULLISH' : 'BEARISH';
-  }
-  const macdValEl = document.getElementById('macd-val');
-  if (macdValEl) animateValue(macdValEl, state.indicators.macd.value.toFixed(2));
+  if(document.getElementById('poly-bar-up')) document.getElementById('poly-bar-up').style.width = `${(state.event.upOdds*100).toFixed(0)}%`;
+  if(document.getElementById('poly-bar-down')) document.getElementById('poly-bar-down').style.width = `${(state.event.downOdds*100).toFixed(0)}%`;
+  if(document.getElementById('up-outcome-price')) document.getElementById('up-outcome-price').textContent = `${(state.event.upOdds*100).toFixed(0)}¢`;
+  if(document.getElementById('down-outcome-price')) document.getElementById('down-outcome-price').textContent = `${(state.event.downOdds*100).toFixed(0)}¢`;
 
   updateOddsChart();
   updateConfluenceCard();
-  renderAllSparklines();
-  renderSignalHistory();
   updateLastAgo();
 }
 
-/* ════════════════════════════════════════════════
-   ANIMAÇÃO DE VALOR (SEM num-flip no relógio)
-   ════════════════════════════════════════════════ */
-function animateValue(el, newText) {
-  if (!el || el.textContent === String(newText)) return;
-  el.classList.remove('num-flip');
-  void el.offsetWidth;
-  el.textContent = newText;
-  el.classList.add('num-flip');
+function updateLastAgo() {
+  const el = document.getElementById('last-update-ago');
+  if (el) el.textContent = Math.round((Date.now() - state.lastUpdateTs)/1000) + 's';
 }
 
 /* ════════════════════════════════════════════════
-   HOOK SSE — app.js chama window.updateDashboardExtras(data)
+   SSE HOOK
    ════════════════════════════════════════════════ */
 window.updateDashboardExtras = function(data) {
   state.lastUpdateTs = Date.now();
-
-  if (data.priceToBeat !== undefined) {
-     state.event.targetPrice = data.priceToBeat;
-  }
-
-  if (data.interval) {
-    // Se o intervalo mudou, reseta o timer para re-sincronizar com o servidor
-    if (data.interval !== state.currentInterval) {
-      state.event.timeRemaining = null;
-      state.totalTimeSeconds = data.interval * 60;
-    }
-    state.currentInterval = data.interval;
-  }
-
-  if (data.prediction) {
-    state.forecast.long  = Math.round(data.prediction.up   * 100);
-    state.forecast.short = Math.round(data.prediction.down * 100);
-  }
+  if (data.priceToBeat) state.event.targetPrice = data.priceToBeat;
+  if (data.interval) state.currentInterval = data.interval;
   if (data.prices) {
-    if (data.prices.up)   state.event.upOdds   = data.prices.up;
-    if (data.prices.down) state.event.downOdds = data.prices.down;
-    state.oddsHistory.push({ up: state.event.upOdds, down: state.event.downOdds });
-    if (state.oddsHistory.length > 12) state.oddsHistory.shift();
+    state.event.upOdds = data.prices.up;
+    state.event.downOdds = data.prices.down;
+    state.oddsHistory.push({ up: data.prices.up, down: data.prices.down });
+    if (state.oddsHistory.length > 20) state.oddsHistory.shift();
   }
   if (data.indicators) {
-    if (data.indicators.rsi !== undefined) {
-      const rsi = data.indicators.rsi;
-      state.indicators.rsi.value  = rsi;
-      state.indicators.rsi.signal = rsi > 55 ? 'BUY' : rsi < 45 ? 'SELL' : 'NEUTRAL';
-      state.indicators.rsi.history.push(+rsi.toFixed(1));
-      if (state.indicators.rsi.history.length > 12) state.indicators.rsi.history.shift();
-    }
-    if (data.indicators.rsiSlope !== undefined) {
-      state.indicators.rsi.slope = data.indicators.rsiSlope;
+    if (data.indicators.rsi) {
+      state.indicators.rsi.value = data.indicators.rsi;
+      state.indicators.rsi.signal = data.indicators.rsi > 55 ? 'BUY' : data.indicators.rsi < 45 ? 'SELL' : 'NEUTRAL';
     }
     if (data.indicators.macd) {
-      const h = data.indicators.macd.hist || 0;
-      state.indicators.macd.value  = h;
-      state.indicators.macd.signal = h >= 0 ? 'BUY' : 'SELL';
-      state.indicators.macd.history.push(h);
-      if (state.indicators.macd.history.length > 12) state.indicators.macd.history.shift();
-    }
-    if (data.indicators.vwap !== undefined) {
-      state.indicators.vwap.value = data.indicators.vwap;
-      state.indicators.vwap.history.push(+data.indicators.vwap.toFixed(0));
-      if (state.indicators.vwap.history.length > 12) state.indicators.vwap.history.shift();
-    }
-    if (data.indicators.vwapDist !== undefined) {
-      state.indicators.vwap.dist = data.indicators.vwapDist;
-      state.indicators.vwap.signal = data.indicators.vwapDist > 0.0001 ? 'BUY' : data.indicators.vwapDist < -0.0001 ? 'SELL' : 'NEUTRAL';
+      state.indicators.macd.value = data.indicators.macd.hist;
+      state.indicators.macd.signal = data.indicators.macd.hist >= 0 ? 'BUY' : 'SELL';
     }
     if (data.indicators.heiken) {
-      const hk = data.indicators.heiken;
-      state.indicators.heikenAshi.value = `${hk.color} x${hk.count}`;
-      state.indicators.heikenAshi.signal = hk.color === 'green' ? 'BUY' : hk.color === 'red' ? 'SELL' : 'NEUTRAL';
-      state.indicators.heikenAshi.history.push(hk.color === 'green' ? 1 : 0);
-      if (state.indicators.heikenAshi.history.length > 12) state.indicators.heikenAshi.history.shift();
+      state.indicators.heikenAshi.value = `${data.indicators.heiken.color} x${data.indicators.heiken.count}`;
+      state.indicators.heikenAshi.signal = data.indicators.heiken.color === 'green' ? 'BUY' : 'SELL';
     }
+    state.indicators.emaCross = data.indicators.emaCross || state.indicators.emaCross;
+    state.indicators.atr = data.indicators.atr || state.indicators.atr;
+    state.indicators.rsiDivergence = data.indicators.rsiDivergence || state.indicators.rsiDivergence;
   }
-  if (data.btcPrice) {
-    state.currentBtcPrice = data.btcPrice;
-    state.priceHistory.push({ price: data.btcPrice });
-    if (state.priceHistory.length > 60) state.priceHistory.shift();
-  }
-
   if (data.timeRemainingSeconds !== undefined) {
-    const serverTime = data.timeRemainingSeconds;
-    // Sincronização Suave: só ajusta se a diferença for maior que 2 segundos
-    // para evitar que o relógio fique pulando devido a latência de rede.
-    const localTime = state.event.timeRemaining;
-    if (localTime === null || Math.abs(serverTime - localTime) > 2) {
-      state.event.timeRemaining = serverTime;
-    }
+    state.event.timeRemaining = data.timeRemainingSeconds;
     state.totalTimeSeconds = data.totalTimeSeconds || state.totalTimeSeconds;
   }
-
   renderAllUI();
 };
 
-/* ════════════════════════════════════════════════
-   COPY SLUG
-   ════════════════════════════════════════════════ */
-window.copySlug = function() {
-  const el = document.getElementById('active-event-id');
-  if (!el) return;
-  navigator.clipboard.writeText(el.textContent).then(() => {
-    el.textContent = '✓ Copied!';
-    setTimeout(() => renderAllUI(), 1500);
-  });
-};
-
-/* ════════════════════════════════════════════════
-   INICIALIZAR
-   ════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   initOddsChart();
-  renderAllUI();
   startCountdown();
   RobotPredictor.renderHistory();
-
-  // "X s ago"
   setInterval(updateLastAgo, 1000);
 });

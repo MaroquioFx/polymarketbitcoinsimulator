@@ -240,17 +240,17 @@
           <svg class="sparkline" id="spark-macd" viewBox="0 0 60 20"></svg>
         </div>
 
-        <!-- VWAP -->
+        <!-- EMA (Trend) -->
         <div class="card ind-card" id="ind-vwap" data-signal="buy">
           <div class="ind-top">
-            <span class="ind-name">VWAP</span>
+            <span class="ind-name">EMA Trend</span>
             <span class="ind-badge badge-buy">BUY</span>
           </div>
           <div class="ind-value-row">
-            <span id="vwap-val" class="ind-value mono">67,324</span>
+            <span id="vwap-val" class="ind-value mono">--</span>
           </div>
-          <div id="vwap-tendency" class="tendency buy">BUY</div>
-          <span id="vwap-dist" class="ind-sub">+0.12%</span>
+          <div id="vwap-tendency" class="tendency buy">BULLISH</div>
+          <span id="vwap-dist" class="ind-sub">+0.00%</span>
           <svg class="sparkline" id="spark-vwap" viewBox="0 0 60 20"></svg>
         </div>
 
@@ -266,19 +266,19 @@
           <svg class="sparkline" id="spark-heiken" viewBox="0 0 60 20"></svg>
         </div>
 
-        <!-- Signal Confluence -->
+        <!-- Smart Sniper Score -->
         <div class="card ind-card confluence-card" id="ind-confluence" data-signal="neutral">
           <div class="ind-top">
-            <span class="ind-name">Signal Confluence</span>
+            <span class="ind-name">Smart Sniper Score</span>
             <span id="confluence-badge" class="ind-badge badge-neutral">NEUTRAL</span>
           </div>
           <div class="confluence-count">
-            <span id="confluence-num" class="mono conf-num">3</span>
-            <span class="conf-of">/4 → </span>
-            <span id="confluence-dir" class="conf-dir">LONG</span>
+            <span id="confluence-num" class="mono conf-num">0</span>
+            <span class="conf-of">/100 </span>
+            <span id="confluence-dir" class="conf-dir">--</span>
           </div>
           <div class="conf-progress-wrap">
-            <div id="conf-progress-bar" class="conf-progress-bar" style="width:75%"></div>
+            <div id="conf-progress-bar" class="conf-progress-bar" style="width:0%"></div>
           </div>
         </div>
 
@@ -374,7 +374,7 @@
           <div class="rht-scroll">
             <table id="robot-history-table" class="robot-history-table">
               <thead><tr>
-                <th>Time</th><th>Entry</th><th>Conf</th><th>RSI</th><th>MACD</th><th>VWAP</th><th>HA</th>
+                <th>Time</th><th>Entry</th><th>Score</th><th>RSI</th><th>MACD</th><th>EMA</th><th>HA</th>
                 <th>Odds</th><th>Reason</th><th>Target</th><th>Final</th><th>PnL</th>
               </tr></thead>
               <tbody><tr><td colspan="12" class="rht-empty">Empty history – wait for first full cycle.</td></tr></tbody>
