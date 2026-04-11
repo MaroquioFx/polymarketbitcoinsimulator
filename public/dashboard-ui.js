@@ -33,18 +33,19 @@ const state = {
   lastUpdateTs: Date.now(),
   totalTimeSeconds: 15 * 60,
   currentBtcPrice: null,
-  currentInterval: 15
+  currentPolyPrice: null, // Preço Chainlink vindo da Polymarket (usado para liquidação)
+  currentInterval: 15,
+  hasRealPrice: false  // Flag: true somente após receber preço real do servidor
 };
 
 /* ════════════════════════════════════════════════
-   HISTÓRICO MOCK INICIAL
+   HISTÓRICO MOCK INICIAL (apenas odds, sem preço falso)
    ════════════════════════════════════════════════ */
 (function initMockHistory() {
-  const base = 67000;
-  for (let i = 30; i >= 0; i--) {
-    state.priceHistory.push({ price: base + (Math.random() - 0.5) * 200 });
-  }
-  state.currentBtcPrice = state.priceHistory[state.priceHistory.length - 1].price;
+  // NOTA: currentBtcPrice e currentPolyPrice permanecem null até receberem
+  // dados reais do servidor via SSE (updateDashboardExtras).
+  // Removemos o mock de preço (base: 67000) para evitar que preços falsos
+  // sejam usados como finalPrice na resolução de predições.
   for (let k = 0; k < 12; k++) {
     state.oddsHistory.push({ up: 0.5, down: 0.5 });
   }
@@ -189,8 +190,16 @@ const RobotPredictor = (() => {
   function resolvePrediction(finalPrice) {
     if (!predictionData) return;
     const tgt = predictionData.targetPrice;
-    const ep = finalPrice || state.currentBtcPrice;
-    if (!tgt || ep === null) { resetCycle(); return; }
+    // Prioridade: 1) Preço Chainlink/Polymarket (preço real de liquidação)
+    //             2) Preço Binance live
+    // NUNCA usar se ainda não recebemos preço real do servidor
+    const ep = state.currentPolyPrice || finalPrice || state.currentBtcPrice;
+    if (!tgt || ep === null || !state.hasRealPrice) {
+      // Sem preço real de mercado, não podemos calcular resultado correto.
+      // Aguarda próximo ciclo com dados reais.
+      resetCycle();
+      return;
+    }
 
     const correct = (predictionData.direction === 'UP' && ep >= tgt) || (predictionData.direction === 'DOWN' && ep < tgt);
     const history = loadHistory();
@@ -270,7 +279,7 @@ const RobotPredictor = (() => {
         <td>${h.indicators.rsi[0]}</td><td>${h.indicators.macd[0]}</td><td>${h.indicators.ema[0]}</td><td>${h.indicators.ha[0]}</td>
         <td class="mono">${(h.upOdds*100).toFixed(0)}/${(h.downOdds*100).toFixed(0)}</td>
         <td class="rht-reason">${h.noTradeReason || '—'}</td>
-        <td class="mono">$${h.targetPrice}</td><td class="mono">$${h.finalPrice}</td>
+        <td class="mono">$${h.targetPrice ? Number(h.targetPrice).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '--'}</td><td class="mono">$${h.finalPrice ? Number(h.finalPrice).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}) : '--'}</td>
         <td class="mono ${resClass}">${pnl}</td>
       </tr>`;
     }).join('');
@@ -352,7 +361,9 @@ function startCountdown() {
         ring.className = `countdown-fill ${s < 60 ? 'danger' : s < 180 ? 'warn' : ''}`;
       }
     }
-    RobotPredictor.check(state.event.timeRemaining, state.currentInterval, state.currentBtcPrice);
+    // Passamos o preço da Polymarket (Chainlink) para resolução, se disponível. 
+    // É o valor final real usado para liquidação no mercado.
+    RobotPredictor.check(state.event.timeRemaining, state.currentInterval, state.currentPolyPrice || state.currentBtcPrice);
   }, 1000);
 }
 
@@ -438,6 +449,14 @@ function updateLastAgo() {
    ════════════════════════════════════════════════ */
 window.updateDashboardExtras = function(data) {
   state.lastUpdateTs = Date.now();
+  if (data.btcPrice) {
+    state.currentBtcPrice = data.btcPrice;
+    state.hasRealPrice = true; // Marcamos que agora temos preço real do servidor
+  }
+  if (data.polymarketPrice) {
+    state.currentPolyPrice = data.polymarketPrice;
+    state.hasRealPrice = true;
+  }
   if (data.priceToBeat) state.event.targetPrice = data.priceToBeat;
   if (data.interval) state.currentInterval = data.interval;
   if (data.prices) {
